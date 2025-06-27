@@ -17,6 +17,8 @@ import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
 
+import { useState } from 'react';
+
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     await Authorization.requireAuthenticatedUser();
     const clientId = params.id!;
@@ -130,9 +132,12 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
     return null;
 }
 
+
 export default function ClientPage() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
+
+    const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
     if (isErrorResponse(data)) {
         return <AlertWrapper message={data.error} type="error"/>;
@@ -140,52 +145,77 @@ export default function ClientPage() {
 
     const { client, JWK, onBehalfOf, scopesAccessibleForAll, scopesWithDelegationSource, scopesAvailableToOrganization } = data;
 
+    const openAiPanel = () => {
+        setAiPanelOpen(true);
+    };
+
+    const closeAiPanel = () => {
+        setAiPanelOpen(false);
+    };
+
     return (
-        <div>
+        <div className="relative">
+            <button
+                onClick={openAiPanel}
+                className="ds-button col-span-6 sm:col-span-4 xl:col-span-2 shadow my-2 py-3"
+                data-variant="secondary"
+                type="button"
+            >
+                Open Ai-Panel
+            </button>
+
+            {/* 🧠 AI Sidepanel */}
+            {aiPanelOpen && (
+                <div className="fixed right-0 top-[64px] h-[calc(100%-64px)] w-full max-w-md bg-white shadow-lg border-l border-gray-300 z-50 overflow-y-auto">
+                    <div className="flex justify-between items-center p-4 border-b">
+                        <h2 className="text-lg font-semibold">AI Panel</h2>
+                        <button
+                            onClick={closeAiPanel}
+                            className="ds-button col-span-6 sm:col-span-4 xl:col-span-2 shadow my-2 py-3"
+                            data-variant="secondary"
+                            type="button"
+                        >
+                            X
+                        </button>
+                    </div>
+                    <div className="p-4">
+                        {/* Her kan du legge inn hva du vil */}
+                        <p>This is the AI panel for: <strong>{client.client_name}</strong></p>
+                        <p>Legg til AI-funksjonalitet her ✨</p>
+                    </div>
+                </div>
+            )}
+
             <Tabs defaultValue="details">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
                     <div className='col-span-12'>
                         <HeadingWrapper level={2} translate={false} heading={client.client_name || ''} className="py-4 bg-gray truncate block overflow-ellipsis"/>
                     </div>
                     <div className='col-span-12 flex'>
-                        <Tabs.Tab
-                            value="details"
-                            className="py-4 px-8 border-solid border-b">
+                        <Tabs.Tab value="details" className="py-4 px-8 border-solid border-b">
                             {t('client_page.details')}
                         </Tabs.Tab>
-                        <Tabs.Tab
-                            value="keys"
-                            className="py-4 px-8 border-solid border-b">
+                        <Tabs.Tab value="keys" className="py-4 px-8 border-solid border-b">
                             {t('key', { count: 0 })}
                         </Tabs.Tab>
-                        <Tabs.Tab
-                            value="scopes"
-                            className="py-4 px-8 border-solid border-b">
+                        <Tabs.Tab value="scopes" className="py-4 px-8 border-solid border-b">
                             {t('scope', { count: 0 })}
                         </Tabs.Tab>
                         {(client.integration_type === IntegrationType.IDPORTEN || client.integration_type === IntegrationType.API_KLIENT || client.integration_type === IntegrationType.KRR) && (
-                            <Tabs.Tab
-                                value="onBehalfOf"
-                                className="py-4 px-8 border-solid border-b">
+                            <Tabs.Tab value="onBehalfOf" className="py-4 px-8 border-solid border-b">
                                 OnBehalfOf
                             </Tabs.Tab>
                         )}
                     </div>
                 </Tabs.List>
 
-                <Tabs.Panel
-                    value="details"
-                    className="p-0">
+                <Tabs.Panel value="details" className="p-0">
                     <Details client={client}/>
                 </Tabs.Panel>
-                <Tabs.Panel 
-                    value="keys" 
-                    className="p-0">
+                <Tabs.Panel value="keys" className="p-0">
                     <Keys jwks={JWK ?? []}/>
                 </Tabs.Panel>
-                <Tabs.Panel
-                    value="scopes"
-                    className="p-0">
+                <Tabs.Panel value="scopes" className="p-0">
                     <Scopes
                         scopes={client.scopes ?? []}
                         scopesAccessibleForAll={scopesAccessibleForAll}
@@ -194,9 +224,7 @@ export default function ClientPage() {
                         clientIntegrationType={client.integration_type!}
                     />
                 </Tabs.Panel>
-                <Tabs.Panel
-                    value="onBehalfOf"
-                    className="p-0">
+                <Tabs.Panel value="onBehalfOf" className="p-0">
                     <OnBehalfOf onBehalfOfs={onBehalfOf!}/>
                 </Tabs.Panel>
             </Tabs>
