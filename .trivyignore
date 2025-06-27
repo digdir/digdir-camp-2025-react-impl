@@ -1,0 +1,3 @@
+CVE-2024-12797 # Remove when Node's Alpine version is updated
+CVE-2025-22869 # Only affects SSH servers which implement file transfer protocols
+CVE-2025-22874 # Waiting on paceto

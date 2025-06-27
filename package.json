@@ -1,0 +1,63 @@
+{
+    "name": "selvbetjening-web",
+    "version": "0.1.0",
+    "private": true,
+    "sideEffects": false,
+    "type": "module",
+    "scripts": {
+        "build": "react-router build",
+        "dev": "react-router dev --port 3000",
+        "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
+        "typecheck": "react-router typegen && tsc",
+        "sort-translations": "node scripts/sort_translation_keys sort",
+        "test": "vitest",
+        "playwright": "playwright test"
+    },
+    "dependencies": {
+        "@conform-to/react": "^1.6.0",
+        "@conform-to/zod": "^1.6.1",
+        "@digdir/designsystemet-css": "^1.0.8",
+        "@digdir/designsystemet-react": "^1.0.8",
+        "@digdir/designsystemet-theme": "^1.0.8",
+        "@navikt/aksel-icons": "^7.23.1",
+        "@react-router/node": "^7.5.3",
+        "@react-router/serve": "^7.5.3",
+        "isbot": "^5.1.28",
+        "jwt-decode": "^4.0.0",
+        "openapi-fetch": "^0.14.0",
+        "openid-client": "^6.5.1",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "react-router": "^7.5.3",
+        "uri-js": "^4.4.1",
+        "zod": "^3.24.3"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.27.0",
+        "@playwright/test": "^1.53.0",
+        "@react-router/dev": "^7.6.2",
+        "@react-router/fs-routes": "^7.6.2",
+        "@types/node": "^22.15.24",
+        "@types/react": "^19.1.6",
+        "@types/react-dom": "^19.1.6",
+        "autoprefixer": "^10.4.21",
+        "eslint": "^9.23.0",
+        "eslint-import-resolver-typescript": "^4.3.5",
+        "eslint-plugin-import": "^2.31.0",
+        "eslint-plugin-jsx-a11y": "^6.10.2",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^5.2.0",
+        "globals": "^16.2.0",
+        "openapi-typescript": "^7.8.0",
+        "postcss": "^8.5.5",
+        "tailwindcss": "^3.4.17",
+        "typescript": "^5.8.3",
+        "typescript-eslint": "^8.32.1",
+        "vite": "^6.3.5",
+        "vite-tsconfig-paths": "^5.1.4",
+        "vitest": "^3.1.4"
+    },
+    "engines": {
+        "node": ">=22.0.0"
+    }
+}

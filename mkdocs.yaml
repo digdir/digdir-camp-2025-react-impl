@@ -1,0 +1,4 @@
+site_name: "kundetjenester-selvbetjening-web"
+
+plugins:
+  - techdocs-core
