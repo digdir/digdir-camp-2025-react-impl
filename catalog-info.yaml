@@ -1,0 +1,15 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: kundetjenester-selvbetjening-web
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: felleslosninger/kundetjenester-selvbetjening-web
+  tags:
+    - remix
+    - frontend
+spec:
+  type: application
+  lifecycle: production
+  owner: team-kundetjenester
+  system: sjolvbetjening

@@ -1,0 +1,72 @@
+# Listen on port 8080 by default, but allow override with PORT env.
+:{$PORT:8080}
+# Serve static files
+root * /app
+file_server
+
+# Unfortunatly, react-router build does not work well with inline script. So for now, 'unsafe-inline' is used.
+header Content-Security-Policy "
+    default-src 'self';
+    script-src  'self' 'unsafe-inline' {$ANALYTICS_CONTENT_SECURITY_POLICY};
+    style-src   'self' https://altinncdn.no;
+    img-src     'self' data:;
+    connect-src 'self' {$API_URL} {$API_URL_BASE} {$OIDC_ISSUER_BASE_URL};
+    font-src    'self' https://altinncdn.no data:;
+    object-src 'none';
+    worker-src 'self';
+    frame-src 'none';
+    manifest-src 'self';
+    frame-ancestors 'none';
+    upgrade-insecure-requests;
+    block-all-mixed-content;
+    form-action 'self';
+    base-uri    'self';
+    report-uri {$API_URL}/api/v1/csp-report;
+    "
+
+# Prevent MIME sniffing
+header X-Content-Type-Options "nosniff"
+
+# IE8+ “download” dialog behavior
+header X-Download-Options "noopen"
+
+# Disable Adobe Flash cross-domain policies
+header X-Permitted-Cross-Domain-Policies "none"
+
+# Basic XSS filter for older browsers
+header X-XSS-Protection "1; mode=block"
+
+# HTTP Strict Transport Security (HSTS)
+header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+# Legacy clickjacking protection for older browsers
+header X-Frame-Options "DENY"
+
+# Restrict or disable APIs/features at the browser level
+header Permissions-Policy "
+    geolocation=(),
+    camera=(),
+    microphone=(),
+    usb=(),
+    fullscreen=(),
+    payment=()"
+
+# Control what referrer information is sent
+header Referrer-Policy "strict-origin-when-cross-origin"
+
+# Configuration endpoint, with variables set according to runtime environment
+@config path /config.json
+
+route {
+
+	respond @config `{
+	"apiUrl": "{$API_URL}",
+	"baseUrl": "{$BASE_URL}",
+	"issuerBaseUrl": "{$OIDC_ISSUER_BASE_URL}",
+	"clientId": "{$OIDC_CLIENT_ID}",
+	"environment": "{$ENVIRONMENT}"}
+	` 200
+
+	# Attempt to serve requested file first, otherwise return index.html.
+	try_files {path} /index.html
+}

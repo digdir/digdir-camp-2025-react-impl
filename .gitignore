@@ -1,0 +1,17 @@
+node_modules
+
+.env
+public/config.json
+.react-router/
+/.cache
+/build
+
+.idea/
+
+vite.config.ts.timestamp-*.mjs
+
+# Playwright
+/playwright/**
+/test-results/
+/playwright-report/
+/blob-report/

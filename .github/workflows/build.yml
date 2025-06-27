@@ -1,0 +1,38 @@
+name: Build and push image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - '.github/**'
+      - 'public/**'
+      - 'server/**'
+      - 'Dockerfile'
+      - 'package*.json'
+      - 'postcss.config.js'
+      - 'tailwind.config.ts'
+      - 'vite.config.ts'
+      - '.trivyignore'
+
+jobs:
+  build:
+    uses: felleslosninger/github-workflows/.github/workflows/ci-build-publish-image.yml@main
+    with:
+      image-name: kundetjenester-selvbetjening-web
+      application-type: docker
+    secrets: inherit
+
+  update-image:
+    uses: felleslosninger/github-workflows/.github/workflows/ci-call-update-image.yml@main
+    needs: build
+    with:
+      application-name: selvbetjening-web
+      deployment-environment: systest
+      image-name: kundetjenester-selvbetjening-web
+      image-version: ${{ needs.build.outputs.image-version }}
+      image-digest: ${{ needs.build.outputs.image-digest }}
+      kubernetes-repo: kundetjenester-cd
+      product-name: sjolvbetjening
+    secrets: inherit
