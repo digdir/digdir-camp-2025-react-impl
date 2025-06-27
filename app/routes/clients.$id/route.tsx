@@ -19,6 +19,10 @@ import { ActionIntent } from './actions';
 
 import { useState } from 'react';
 
+/**
+ * Loads client data and related resources for the client details page. Requires authenticated user.
+ * @param params - The route parameters, including the client ID.
+ */
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     await Authorization.requireAuthenticatedUser();
     const clientId = params.id!;
@@ -41,6 +45,11 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     return { client, JWK: JWK.data ?? [], onBehalfOf, scopesAccessibleForAll, scopesWithDelegationSource, scopesAvailableToOrganization };
 }
 
+/**
+ * Handles client actions such as updating, deleting, or adding keys and scopes.
+ * @param request - The request object containing form data.
+ * @param params - The route parameters, including the client ID.
+ */
 export async function clientAction({ request, params }: ClientActionFunctionArgs) {
     const clientId = params.id!;
     const formData = await request.formData();
@@ -133,6 +142,9 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
 }
 
 
+/**
+ * ClientPage component displays the details of a client, including its keys, scopes, and on-behalf-of configurations.
+ */
 export default function ClientPage() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
