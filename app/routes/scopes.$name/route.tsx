@@ -113,20 +113,20 @@ export default function ScopePage() {
     const closeAiPanel = () => {
         setAiPanelOpen(false);
     };
-    
+
     return (
         <div>
             {/* Fixed AI-flytknapp med secondary + blå hover */}
             <button
-                onClick={openAiPanel}
-                type="button"
-                className="fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200"
-                
-                title="Åpne AI-hjelp"
-                >
+            onClick={openAiPanel}
+            type="button"
+            className="absolute top-3 left-56 z-50 w-28 h-12 rounded-full ds-button items-center justify-center transition-colors duration-200"
+            title="Åpne AI-hjelp"
+            >
                 🤖 DesKI
             </button>
 
+            {/*clientName={client.client_name ?? ''}*/}
             <AiPanel isOpen={aiPanelOpen} onClose={closeAiPanel} />
 
             <Tabs defaultValue="accesses">
