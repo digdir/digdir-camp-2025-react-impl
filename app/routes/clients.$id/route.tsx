@@ -181,8 +181,8 @@ export default function ClientPage() {
                 🤖 DesKI
             </button>
 
-
-            <AiPanel isOpen={aiPanelOpen} onClose={closeAiPanel} clientName={client.client_name ?? ''} />
+            {/*clientName={client.client_name ?? ''}*/}
+            <AiPanel isOpen={aiPanelOpen} onClose={closeAiPanel} />
 
             <Tabs defaultValue="details">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
