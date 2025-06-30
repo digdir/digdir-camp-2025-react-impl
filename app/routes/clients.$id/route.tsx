@@ -16,7 +16,7 @@ import { StatusColor, StatusMessage } from '~/lib/status';
 import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
-import AiPanel from '~/components/AiPanel2';
+import AiPanel from '~/components/AiPanel';
 
 import { useState } from 'react';
 
