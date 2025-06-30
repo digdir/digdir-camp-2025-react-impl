@@ -17,7 +17,7 @@ import { StatusColor, StatusMessage } from '~/lib/status';
 import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
-
+import AiPanel from '~/components/AiPanel';
 
 /**
  * Loads client data and related resources for the client details page. Requires authenticated user.
@@ -200,35 +200,20 @@ export default function ClientPage() {
 
     return (
         <div className="relative">
+            
+           {/* Fixed AI-flytknapp med secondary + blå hover */}
             <button
-                onClick={openAiPanel}
-                className="ds-button col-span-6 sm:col-span-4 xl:col-span-2 shadow my-2 py-3"
-                data-variant="secondary"
-                type="button"
+            onClick={openAiPanel}
+            type="button"
+            className="fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200"
+            
+            title="Åpne AI-hjelp"
             >
-                Open Ai-Panel
+                🤖 DesKI
             </button>
 
-            {aiPanelOpen && (
-                <div className="fixed right-0 top-[64px] h-[calc(100%-64px)] w-full max-w-md bg-white shadow-lg border-l border-gray-300 z-50 overflow-y-auto">
-                    <div className="flex justify-between items-center p-4 border-b">
-                        <h2 className="text-lg font-semibold">AI Panel</h2>
-                        <button
-                            onClick={closeAiPanel}
-                            className="ds-button col-span-6 sm:col-span-4 xl:col-span-2 shadow my-2 py-3"
-                            data-variant="secondary"
-                            type="button"
-                        >
-                            X
-                        </button>
-                    </div>
-                    <div className="p-4">
-                        {/* Her kan du legge inn hva du vil */}
-                        <p>This is the AI panel for: <strong>{client.client_name}</strong></p>
-                        <p>Legg til AI-funksjonalitet her ✨</p>
-                    </div>
-                </div>
-            )}
+            {/*clientName={client.client_name ?? ''}*/}
+            <AiPanel isOpen={aiPanelOpen} onClose={closeAiPanel} />
 
             <Tabs defaultValue="details">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
