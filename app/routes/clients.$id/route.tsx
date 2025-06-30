@@ -1,5 +1,6 @@
 import { ClientActionFunctionArgs, ClientLoaderFunctionArgs, redirect, useLoaderData } from 'react-router';
 import { Tabs } from '@digdir/designsystemet-react';
+import { useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { ApiClient, ApiResponse } from '~/lib/api_client';
@@ -17,7 +18,6 @@ import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
 
-import { useState } from 'react';
 
 /**
  * Loads client data and related resources for the client details page. Requires authenticated user.
@@ -46,99 +46,132 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
 }
 
 /**
+ * Handles client deletion action.
+ */
+async function handleDeleteClient(clientService: ClientService, clientId: string) {
+    const apiResponse = await clientService.deleteClient(clientId);
+    if (!apiResponse.error) {
+        StatusMessage.set('client_page.successful_delete', StatusColor.success);
+        return { redirect: '/clients' };
+    }
+    return { apiResponse };
+}
+
+/**
+ * Handles client update action.
+ */
+async function handleUpdateClient(clientService: ClientService, clientId: string, formData: FormData) {
+    const apiResponse = await clientService.updateClient(clientId, formData);
+    const statusMessage = !apiResponse.error ? 'client_page.successful_update' : '';
+    return { apiResponse, statusMessage };
+}
+
+/**
+ * Handles add key action.
+ */
+async function handleAddKey(clientService: ClientService, clientId: string, formData: FormData) {
+    const apiResponse = await clientService.addKey(clientId, formData.get('jwk') as string);
+    const statusMessage = !apiResponse.error ? 'client_page.successful_jwk_add' : '';
+    return { apiResponse, statusMessage };
+}
+
+/**
+ * Handles add scope action.
+ */
+async function handleAddScope(clientService: ClientService, clientId: string, formData: FormData) {
+    const apiResponse = await clientService.addScope(clientId, formData.getAll('scopes') as string[]);
+    const statusMessage = !apiResponse.error ? 'client_page.successful_scope_add' : '';
+    return { apiResponse, statusMessage };
+}
+
+/**
+ * Handles OnBehalfOf actions (add, edit, delete).
+ */
+async function handleOnBehalfOfActions(clientService: ClientService, clientId: string, formData: FormData, intent: string) {
+    let apiResponse: ApiResponse<any>;
+    let messageKey: string;
+
+    switch (intent) {
+    case ActionIntent.AddOnBehalfOf:
+        apiResponse = await clientService.addOnBehalfOf(clientId, Object.fromEntries(formData.entries()) as ClientOnBehalfOf);
+        messageKey = 'client_page.successful_onbehalfof_create';
+        break;
+    case ActionIntent.EditOnBehalfOf:
+        apiResponse = await clientService.editOnBehalfOf(clientId, Object.fromEntries(formData.entries()) as ClientOnBehalfOf);
+        messageKey = 'client_page.successful_onbehalfof_edit';
+        break;
+    case ActionIntent.DeleteOnBehalfOf:
+        apiResponse = await clientService.removeOnBehalfOf(clientId, formData.get('onBehalfOf') as string);
+        messageKey = 'client_page.successful_onbehalfof_delete';
+        break;
+    default:
+        return { apiResponse: undefined };
+    }
+
+    if (!apiResponse.error) {
+        StatusMessage.set(messageKey, StatusColor.success, formData.get('name') as string);
+    }
+    return { apiResponse };
+}
+
+/**
  * Handles client actions such as updating, deleting, or adding keys and scopes.
- * @param request - The request object containing form data.
- * @param params - The route parameters, including the client ID.
  */
 export async function clientAction({ request, params }: ClientActionFunctionArgs) {
     const clientId = params.id!;
     const formData = await request.formData();
+    const clientService = await ClientService.create();
+    const intent = formData.get('intent') as string;
 
-    const clientService = await ClientService.create()
+    let result: { apiResponse?: ApiResponse<any>; statusMessage?: string; redirect?: string } = {};
 
-    let apiResponse: ApiResponse<any> | null = null;
-    let statusMessage = ''
-
-    switch (formData.get('intent') as string) {
+    switch (intent) {
     case ActionIntent.DeleteClient:
-        apiResponse = await clientService.deleteClient(clientId);
-        if (!apiResponse.error) {
-            StatusMessage.set('client_page.successful_delete', StatusColor.success)
-            return redirect('/clients');
-        }
+        result = await handleDeleteClient(clientService, clientId);
+        if (result.redirect) return redirect(result.redirect);
         break;
     case ActionIntent.UpdateClient:
-        apiResponse = await clientService.updateClient(clientId, formData);
-        if (!apiResponse.error) {
-            statusMessage = 'client_page.successful_update'
-        }
+        result = await handleUpdateClient(clientService, clientId, formData);
         break;
     case ActionIntent.AddKey:
-        apiResponse = await clientService.addKey(clientId, formData.get('jwk') as string);
-        if (!apiResponse.error) {
-            statusMessage = 'client_page.successful_jwk_add'
-        }
+        result = await handleAddKey(clientService, clientId, formData);
         break;
     case ActionIntent.AddScopeToClient:
-        apiResponse = await clientService.addScope(clientId, formData.getAll('scopes') as string[]);
-        if (!apiResponse.error) {
-            statusMessage = 'client_page.successful_scope_add'
-        }
+        result = await handleAddScope(clientService, clientId, formData);
         break;
     case ActionIntent.AddOnBehalfOf:
-        apiResponse = await clientService.addOnBehalfOf(clientId, Object.fromEntries(formData.entries()) as ClientOnBehalfOf);
-        if (!apiResponse.error) {
-            StatusMessage.set('client_page.successful_onbehalfof_create', StatusColor.success, formData.get('name') as string)
-        }
-        break;
     case ActionIntent.EditOnBehalfOf:
-        apiResponse = await clientService.editOnBehalfOf(clientId, Object.fromEntries(formData.entries()) as ClientOnBehalfOf);
-        if (!apiResponse.error) {
-            StatusMessage.set('client_page.successful_onbehalfof_edit', StatusColor.success, formData.get('name') as string)
-        }
-        break;
     case ActionIntent.DeleteOnBehalfOf:
-        apiResponse = await clientService.removeOnBehalfOf(clientId, formData.get('onBehalfOf') as string);
-        if (!apiResponse.error) {
-            StatusMessage.set('client_page.successful_onbehalfof_delete', StatusColor.success, formData.get('name') as string)
-        }
+        result = await handleOnBehalfOfActions(clientService, clientId, formData, intent);
         break;
     case ActionIntent.DeleteKey:
-        apiResponse = await clientService.deleteJwk(clientId, formData.get('kid') as string);
-        if (!apiResponse.error) {
-            statusMessage = 'client_page.successful_jwk_delete'
-        }
+        result.apiResponse = await clientService.deleteJwk(clientId, formData.get('kid') as string);
+        result.statusMessage = !result.apiResponse.error ? 'client_page.successful_jwk_delete' : '';
         break;
     case ActionIntent.DeleteScopeFromClient:
-        apiResponse = await clientService.removeScope(clientId, formData.get('scope') as string);
-        if (!apiResponse.error) {
-            statusMessage = 'client_page.successful_scope_delete'
-        }
+        result.apiResponse = await clientService.removeScope(clientId, formData.get('scope') as string);
+        result.statusMessage = !result.apiResponse.error ? 'client_page.successful_scope_delete' : '';
         break;
     case ActionIntent.GenerateSecret:
-        apiResponse = await clientService.generateClientSecret(clientId);
-        if (!apiResponse.error) {
-            StatusMessage.set('client_page.generate_secret_success', StatusColor.success)
-            return { client_secret: apiResponse.data.client_secret };
+        result.apiResponse = await clientService.generateClientSecret(clientId);
+        if (!result.apiResponse.error) {
+            StatusMessage.set('client_page.generate_secret_success', StatusColor.success);
+            return { client_secret: result.apiResponse.data.client_secret };
         }
         break;
     default:
         return null;
     }
 
-    if (apiResponse.error) {
-        return { error: apiResponse.error.userMessage };
+    if (result.apiResponse?.error) {
+        return { error: result.apiResponse.error.userMessage };
     }
 
-    if (statusMessage !== '') {
-        StatusMessage.set(statusMessage, StatusColor.success)
+    if (result.statusMessage) {
+        StatusMessage.set(result.statusMessage, StatusColor.success);
     }
 
-    if (apiResponse?.data) {
-        return { data: apiResponse.data };
-    }
-
-    return null;
+    return result.apiResponse?.data ? { data: result.apiResponse.data } : null;
 }
 
 
@@ -176,7 +209,6 @@ export default function ClientPage() {
                 Open Ai-Panel
             </button>
 
-            {/* 🧠 AI Sidepanel */}
             {aiPanelOpen && (
                 <div className="fixed right-0 top-[64px] h-[calc(100%-64px)] w-full max-w-md bg-white shadow-lg border-l border-gray-300 z-50 overflow-y-auto">
                     <div className="flex justify-between items-center p-4 border-b">
@@ -201,7 +233,7 @@ export default function ClientPage() {
             <Tabs defaultValue="details">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
                     <div className='col-span-12'>
-                        <HeadingWrapper level={2} translate={false} heading={client.client_name || ''} className="py-4 bg-gray truncate block overflow-ellipsis"/>
+                        <HeadingWrapper level={2} translate={false} heading={client.client_name ?? ''} className="py-4 bg-gray truncate block overflow-ellipsis"/>
                     </div>
                     <div className='col-span-12 flex'>
                         <Tabs.Tab value="details" className="py-4 px-8 border-solid border-b">
@@ -233,7 +265,7 @@ export default function ClientPage() {
                         scopesAccessibleForAll={scopesAccessibleForAll}
                         scopesWithDelegationSource={scopesWithDelegationSource}
                         scopesAvailableToOrganization={scopesAvailableToOrganization}
-                        clientIntegrationType={client.integration_type!}
+                        clientIntegrationType={client.integration_type}
                     />
                 </Tabs.Panel>
                 <Tabs.Panel value="onBehalfOf" className="p-0">
