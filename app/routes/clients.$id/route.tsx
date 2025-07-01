@@ -17,7 +17,72 @@ import { StatusColor, StatusMessage } from '~/lib/status';
 import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
-import AiPanel from '~/components/AiPanel';
+
+/**
+ * Interface for the chatbot response structure.
+ */
+interface ChatbotResponse {
+  answer: string;
+  source?: string;
+}
+
+/**
+ * Service for interacting with the chatbot API.
+ */
+class ChatbotService {
+    private static readonly BASE_URL = 'http://localhost:8000/docs';
+
+    static async askChatbot(question: string, context?: any): Promise<ChatbotResponse> {
+        try {
+            console.log('ChatbotService: Sending request to chatbot', {
+                url: `${this.BASE_URL}/copilot/`,
+                question: question.substring(0, 100) + (question.length > 100 ? '...' : ''),
+                hasContext: !!context
+            });
+
+            const requestBody = {
+                question,
+                ...(context && { context })
+            };
+
+            const response = await fetch(`${this.BASE_URL}/copilot/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            // Resten av koden forblir den samme...
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('ChatbotService: HTTP error', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorBody: errorText
+                });
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('ChatbotService: Successfully parsed response', {
+                hasAnswer: !!data.answer,
+                answerLength: data.answer?.length || 0,
+                hasSource: !!data.source
+            });
+
+            return data;
+        } catch (error) {
+            console.error('ChatbotService: Request failed', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                url: `${this.BASE_URL}/copilot/`,
+                question: question.substring(0, 50) + '...'
+            });
+            throw error;
+        }
+    }
+}
 
 /**
  * Loads client data and related resources for the client details page. Requires authenticated user.
@@ -37,12 +102,21 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     const actualIntegrationType = client.integration_type === 'api_klient' ? 'api_client' : client.integration_type;
 
     const JWK = await apiClient.getJwks(client.client_id!);
+
     const scopesAccessibleForAll = apiClient.getAccessibleForAllScopes(actualIntegrationType!);
     const scopesWithDelegationSource = apiClient.getScopesWithDelegationSource(actualIntegrationType!);
     const scopesAvailableToOrganization = apiClient.getScopesAccessibleToUsersOrganization();
+
     const { data: onBehalfOf } = await apiClient.getAllOnBehalfOf(client.client_id!);
 
-    return { client, JWK: JWK.data ?? [], onBehalfOf, scopesAccessibleForAll, scopesWithDelegationSource, scopesAvailableToOrganization };
+    return {
+        client,
+        JWK: JWK.data ?? [],
+        onBehalfOf,
+        scopesAccessibleForAll,
+        scopesWithDelegationSource,
+        scopesAvailableToOrganization
+    };
 }
 
 /**
@@ -174,7 +248,6 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
     return result.apiResponse?.data ? { data: result.apiResponse.data } : null;
 }
 
-
 /**
  * ClientPage component displays the details of a client, including its keys, scopes, and on-behalf-of configurations.
  */
@@ -183,6 +256,9 @@ export default function ClientPage() {
     const data = useLoaderData<typeof clientLoader>();
 
     const [aiPanelOpen, setAiPanelOpen] = useState(false);
+    const [question, setQuestion] = useState('');
+    const [response, setResponse] = useState<string>('');
+    const [loading, setLoading] = useState(false);
 
     if (isErrorResponse(data)) {
         return <AlertWrapper message={data.error} type="error"/>;
@@ -198,22 +274,105 @@ export default function ClientPage() {
         setAiPanelOpen(false);
     };
 
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!question.trim()) return;
+
+        setLoading(true);
+        try {
+            console.log('ClientPage: Starting chatbot request', { question: question.substring(0, 50) + '...' });
+
+            // Await dataene før du bruker dem
+            const [
+                scopesAccessibleForAllData,
+                scopesWithDelegationSourceData,
+                scopesAvailableToOrganizationData
+            ] = await Promise.all([
+                scopesAccessibleForAll,
+                scopesWithDelegationSource,
+                scopesAvailableToOrganization
+            ]);
+
+            const context = {
+                client: {
+                    client_id: client.client_id,
+                    client_name: client.client_name,
+                    integration_type: client.integration_type,
+                    scopes: client.scopes
+                },
+                jwkCount: JWK?.length || 0,
+                onBehalfOfCount: onBehalfOf?.length || 0,
+                availableScopes: {
+                    accessibleForAll: scopesAccessibleForAllData.data?.length || 0,
+                    withDelegationSource: scopesWithDelegationSourceData.data?.length || 0,
+                    availableToOrganization: scopesAvailableToOrganizationData.data?.length || 0
+                }
+            };
+
+            const result = await ChatbotService.askChatbot(question, context);
+            console.log('ClientPage: Chatbot request successful');
+            setResponse(result.answer);
+        } catch (error) {
+            console.error('ClientPage: Chatbot request failed', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
+            setResponse('Error: Could not get response from chatbot');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Render the client details page with a fixed AI button and side panel for chatbot interaction.
+     */
     return (
         <div className="relative">
-            
-           {/* Fixed AI-flytknapp med secondary + blå hover */}
+            {/* Fixed AI-buttom with secondary + blue hover */}
             <button
-            onClick={openAiPanel}
-            type="button"
-            className="fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200"
-            
-            title="Åpne AI-hjelp"
+                onClick={openAiPanel}
+                type="button"
+                className="fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200"
+                title="Åpne AI-hjelp"
             >
                 🤖 DesKI
             </button>
 
-            {/*clientName={client.client_name ?? ''}*/}
-            <AiPanel isOpen={aiPanelOpen} onClose={closeAiPanel} />
+            {/* AI Panel - style for sidepanel */}
+            {aiPanelOpen && (
+                <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-lg z-50 p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold">DesKI Assistant</h3>
+                        <button onClick={closeAiPanel} className="text-gray-500 hover:text-gray-700">
+                            ✕
+                        </button>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="mb-4">
+                        <textarea
+                            value={question}
+                            onChange={(e) => setQuestion(e.target.value)}
+                            placeholder="Ask your question..."
+                            className="w-full p-2 border rounded"
+                            rows={3}
+                            disabled={loading}
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading || !question.trim()}
+                            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+                        >
+                            {loading ? 'Asking...' : 'Ask'}
+                        </button>
+                    </form>
+
+                    {response && (
+                        <div className="p-3 bg-gray-100 rounded">
+                            <p>{response}</p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <Tabs defaultValue="details">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
