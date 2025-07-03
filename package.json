@@ -25,7 +25,7 @@
         "isbot": "^5.1.28",
         "jwt-decode": "^4.0.0",
         "openapi-fetch": "^0.14.0",
-        "openid-client": "^6.5.1",
+        "openid-client": "^6.6.2",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
         "react-router": "^7.5.3",
