@@ -30,7 +30,7 @@ interface ChatbotResponse {
  * Service for interacting with the chatbot API.
  */
 class ChatbotService {
-    private static readonly BASE_URL = 'http://localhost:8000/docs';
+    private static readonly BASE_URL = 'http://localhost:8000';
 
     static async askChatbot(question: string, context?: any): Promise<ChatbotResponse> {
         try {
