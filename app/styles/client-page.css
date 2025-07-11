@@ -6,10 +6,13 @@
 /* AI Panel Styles */
 .ai-panel {
   @apply fixed right-0 top-0 h-full w-96 bg-white shadow-lg z-50 p-6;
+  display: flex;
+  flex-direction: column;
 }
 
 .ai-panel-header {
   @apply flex justify-between items-center mb-4;
+  flex-shrink: 0;
 }
 
 .ai-panel-title {
@@ -21,7 +24,11 @@
 }
 
 .ai-form {
-  @apply mb-4;
+  position: sticky;
+  bottom: 2rem;
+  background: white;
+  padding-top: 1rem;
+  flex-shrink: 0;
 }
 
 .ai-textarea {
@@ -33,7 +40,9 @@
 }
 
 .ai-response {
-  @apply p-3 bg-gray-100 rounded;
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
 }
 
 /* Tab Styles */

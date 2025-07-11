@@ -110,8 +110,16 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                     <div className="ai-panel-header">
                         <h3 className="ai-panel-title">DesKI Assistant</h3>
                         <button onClick={closeAiPanel} className="ai-panel-close">
-              ✕
+                            X
                         </button>
+                    </div>
+
+                    <div className="ai-response">
+                        {response ? (
+                            <p>{response}</p>
+                        ) : (
+                            <p className="text-gray-400">Ask me something...</p>
+                        )}
                     </div>
 
                     <form onSubmit={handleSubmit} className="ai-form">
@@ -131,12 +139,6 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                             {loading ? 'Asking...' : 'Ask'}
                         </button>
                     </form>
-
-                    {response && (
-                        <div className="ai-response">
-                            <p>{response}</p>
-                        </div>
-                    )}
                 </div>
             )}
         </>
