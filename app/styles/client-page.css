@@ -1,6 +1,6 @@
 /* AI Button Styles */
 .ai-button {
-  @apply fixed bottom-6 right-6 z-10
+  @apply fixed bottom-6 right-20 z-10
   w-24 h-24
   rounded-full
   bg-gradient-to-br from-blue-600 to-blue-500
@@ -150,7 +150,7 @@
 .chat-message {
   max-width: 75%;
   margin-bottom: 0.75rem;
-  padding: 0.6rem 0.9rem;
+  padding: 0.1rem 0.6rem;
   border-radius: 0.5rem;
   font-size: 0.95rem;
   line-height: 1.4;
@@ -167,6 +167,7 @@
   background-color: #3b82f6; /* blå */
   color: white;
   align-self: flex-end;
+  margin-right: 1rem;
 }
 
 .typing-indicator {
