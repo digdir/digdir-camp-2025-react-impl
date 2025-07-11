@@ -1,0 +1,62 @@
+/* AI Button Styles */
+.ai-button {
+  @apply fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200;
+}
+
+/* AI Panel Styles */
+.ai-panel {
+  @apply fixed right-0 top-0 h-full w-96 bg-white shadow-lg z-50 p-6;
+}
+
+.ai-panel-header {
+  @apply flex justify-between items-center mb-4;
+}
+
+.ai-panel-title {
+  @apply text-lg font-semibold;
+}
+
+.ai-panel-close {
+  @apply text-gray-500 hover:text-gray-700;
+}
+
+.ai-form {
+  @apply mb-4;
+}
+
+.ai-textarea {
+  @apply w-full p-2 border rounded;
+}
+
+.ai-submit-button {
+  @apply mt-2 px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50;
+}
+
+.ai-response {
+  @apply p-3 bg-gray-100 rounded;
+}
+
+/* Tab Styles */
+.tabs-list {
+  @apply top-0 z-10 bg-gray grid grid-cols-12 border-none;
+}
+
+.tabs-heading {
+  @apply col-span-12;
+}
+
+.tabs-heading-wrapper {
+  @apply py-4 bg-gray truncate block overflow-ellipsis;
+}
+
+.tabs-container {
+  @apply col-span-12 flex;
+}
+
+.tab-item {
+  @apply py-4 px-8 border-solid border-b;
+}
+
+.tabs-panel {
+  @apply p-0;
+}
