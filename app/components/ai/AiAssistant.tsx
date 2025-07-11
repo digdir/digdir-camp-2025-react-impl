@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import '~/styles/client-page.css';
 
 interface AiAssistantProps {
@@ -67,6 +67,7 @@ class ChatbotService {
 export default function AiAssistant({ context }: AiAssistantProps) {
     const [aiPanelOpen, setAiPanelOpen] = useState(false);
     const [question, setQuestion] = useState('');
+
     type Message = {
         sender: 'user' | 'bot';
         text: string;
@@ -74,9 +75,17 @@ export default function AiAssistant({ context }: AiAssistantProps) {
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const openAiPanel = () => setAiPanelOpen(true);
     const closeAiPanel = () => setAiPanelOpen(false);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'end'
+        });
+    }, [messages, loading]);
 
     const handleSubmit = async (
         e: React.FormEvent | React.KeyboardEvent
@@ -148,6 +157,8 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                                 </div>
                             </div>
                         )}
+
+                        <div ref={messagesEndRef} />
                     </div>
 
                     <form onSubmit={handleSubmit} className="ai-form">

@@ -25,7 +25,7 @@
 
 .ai-form {
   position: sticky;
-  bottom: 2rem;
+  bottom: 1rem;
   background: white;
   padding-top: 1rem;
   flex-shrink: 0;
@@ -42,7 +42,7 @@
 .ai-response {
   flex-grow: 1;
   overflow-y: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 3rem;
 }
 
 /* Tab Styles */
@@ -121,4 +121,21 @@
   40% {
     transform: translateY(-6px);
   }
+}
+
+.ai-response::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-response::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* lys grå */
+  border-radius: 4px;
+}
+
+.ai-response::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; /* mørkere grå ved hover */
+}
+
+.ai-response::-webkit-scrollbar-track {
+  background: transparent;
 }
