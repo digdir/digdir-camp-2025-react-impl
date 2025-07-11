@@ -69,19 +69,43 @@
 
 .ai-form {
   position: sticky;
-  bottom: 1rem;
+  bottom: 0;
   background: white;
-  padding-top: 1rem;
+  padding: 1rem 0.8rem;
   flex-shrink: 0;
   border-top: 1px solid #e5e7eb;
 }
 
 .ai-textarea {
-  @apply w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-150;
+  @apply w-full
+  p-3
+  border border-gray-300
+  rounded-lg
+  bg-white
+  text-gray-800
+  focus:outline-none
+  focus:ring-2 focus:ring-blue-400
+  transition duration-150
+  resize-none;
+}
+
+.ai-textarea::placeholder {
+  @apply text-gray-400;
 }
 
 .ai-submit-button {
-  @apply mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors duration-150;
+  @apply mt-3
+  px-5 py-2.5
+  bg-blue-500
+  hover:bg-blue-600
+  text-white
+  font-semibold
+  rounded-md
+  shadow
+  disabled:opacity-50
+  transition-all duration-150;
+  border: 0;
+  outline: none;
 }
 
 .ai-response {

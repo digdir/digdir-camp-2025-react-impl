@@ -135,7 +135,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
 
             <div className={`ai-panel ${aiPanelOpen ? 'slide-in' : 'slide-out'}`}>
                 <div className="ai-panel-header">
-                    <h3 className="ai-panel-title">DesKI Assistant</h3>
+                    <h3 className="ai-panel-title">DesKI-assistent</h3>
                     <button
                         onClick={closeAiPanel}
                         className="ai-panel-close"
@@ -147,7 +147,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
 
                 <div className="ai-response">
                     {messages.length === 0 && (
-                        <p className="text-gray-400">Ask me something...</p>
+                        <p className="text-gray-400">Spør meg om noe...</p>
                     )}
 
                     {messages.map((msg, idx) => (
@@ -182,7 +182,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                                 handleSubmit(e);
                             }
                         }}
-                        placeholder="Ask your question..."
+                        placeholder="Still spørsmålet her..."
                         className="ai-textarea"
                         rows={3}
                         disabled={loading}
@@ -192,7 +192,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                         disabled={loading || !question.trim()}
                         className="ai-submit-button"
                     >
-                        {loading ? 'Asking...' : 'Ask'}
+                        {loading ? 'Henvender...' : 'Spør'}
                     </button>
                 </form>
             </div>
