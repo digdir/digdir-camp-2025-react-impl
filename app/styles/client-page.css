@@ -27,7 +27,7 @@
 
 /* AI Panel Styles */
 .ai-panel {
-  @apply fixed top-4 bottom-4 bg-white shadow-2xl z-50;
+  @apply fixed top-20 bottom-4 bg-white shadow-2xl z-50;
   pointer-events: none;
   right: 5rem;
   width: 22rem;

@@ -96,24 +96,40 @@ export default function AiAssistant({ context }: AiAssistantProps) {
         if (!question.trim()) return;
 
         const userMessage = { sender: 'user', text: question };
-
-        setMessages((prev) => [...prev, userMessage]);
-
+        setMessages(prev => [...prev, userMessage]);
         setQuestion('');
-
         setLoading(true);
 
         try {
             const result = await ChatbotService.askChatbot(question, context);
-            const botMessage = { sender: 'bot', text: result.answer };
+            const fullAnswer = result.answer;
 
-            setMessages((prev) => [...prev, botMessage]);
+
+            let currentText = "";
+            setMessages(prev => [...prev, { sender: 'bot', text: currentText }]);
+
+            let index = 0;
+
+            const interval = setInterval(() => {
+                index++;
+                currentText = fullAnswer.slice(0, index);
+                setMessages(prev => {
+
+                    const others = prev.slice(0, -1);
+
+                    return [...others, { sender: 'bot', text: currentText }];
+                });
+
+                if (index === fullAnswer.length) {
+                    clearInterval(interval);
+                    setLoading(false);
+                }
+            }, 15);
         } catch (error) {
-            setMessages((prev) => [
+            setMessages(prev => [
                 ...prev,
                 { sender: 'bot', text: 'Error: Could not get response from chatbot' }
             ]);
-        } finally {
             setLoading(false);
         }
     };
