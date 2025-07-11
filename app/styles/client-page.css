@@ -1,6 +1,6 @@
 /* AI Button Styles */
 .ai-button {
-  @apply fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200;
+  @apply fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full bg-blue-500 text-white hover:bg-blue-600 items-center justify-center text-2xl transition-colors duration-200;
 }
 
 /* AI Panel Styles */
@@ -38,7 +38,7 @@
 
 /* Tab Styles */
 .tabs-list {
-  @apply top-0 z-10 bg-gray grid grid-cols-12 border-none;
+  @apply top-0 z-10 bg-gray-50 grid grid-cols-12 border-none;
 }
 
 .tabs-heading {
@@ -46,7 +46,7 @@
 }
 
 .tabs-heading-wrapper {
-  @apply py-4 bg-gray truncate block overflow-ellipsis;
+  @apply py-4 bg-gray-50 truncate block overflow-ellipsis;
 }
 
 .tabs-container {
