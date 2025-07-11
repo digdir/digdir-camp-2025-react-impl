@@ -136,8 +136,12 @@ export default function AiAssistant({ context }: AiAssistantProps) {
             <div className={`ai-panel ${aiPanelOpen ? 'slide-in' : 'slide-out'}`}>
                 <div className="ai-panel-header">
                     <h3 className="ai-panel-title">DesKI Assistant</h3>
-                    <button onClick={closeAiPanel} className="ai-panel-close">
-                        X
+                    <button
+                        onClick={closeAiPanel}
+                        className="ai-panel-close"
+                        aria-label="Lukk chat"
+                    >
+                        ✕
                     </button>
                 </div>
 
