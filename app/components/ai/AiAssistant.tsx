@@ -98,6 +98,9 @@ export default function AiAssistant({ context }: AiAssistantProps) {
         const userMessage = { sender: 'user', text: question };
 
         setMessages((prev) => [...prev, userMessage]);
+
+        setQuestion('');
+
         setLoading(true);
 
         try {
@@ -112,7 +115,6 @@ export default function AiAssistant({ context }: AiAssistantProps) {
             ]);
         } finally {
             setLoading(false);
-            setQuestion('');
         }
     };
 
@@ -185,7 +187,6 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                         placeholder="Still spørsmålet her..."
                         className="ai-textarea"
                         rows={3}
-                        disabled={loading}
                     />
                     <button
                         type="submit"
