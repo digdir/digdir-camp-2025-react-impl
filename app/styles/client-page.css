@@ -10,8 +10,14 @@
   text-2xl
   font-bold
   transition-all duration-200
-  shadow-xl;
-  transition: right 0.4s ease, transform 0.4s ease;
+  shadow-xl
+  outline-none;
+  border: none;
+}
+
+.ai-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
 }
 
 .ai-button.move-left {
@@ -72,6 +78,8 @@
 }
 
 .ai-response {
+  display: flex;
+  flex-direction: column;
   flex-grow: 1;
   overflow-y: auto;
   margin-bottom: 3rem;
