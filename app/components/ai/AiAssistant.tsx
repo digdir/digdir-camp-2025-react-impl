@@ -192,7 +192,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                         disabled={loading || !question.trim()}
                         className="ai-submit-button"
                     >
-                        {loading ? 'Henvender...' : 'Spør'}
+                        {loading ? 'Genererer svar...' : 'Spør'}
                     </button>
                 </form>
             </div>
