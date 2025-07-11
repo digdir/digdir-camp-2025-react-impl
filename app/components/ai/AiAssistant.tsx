@@ -67,7 +67,12 @@ class ChatbotService {
 export default function AiAssistant({ context }: AiAssistantProps) {
     const [aiPanelOpen, setAiPanelOpen] = useState(false);
     const [question, setQuestion] = useState('');
-    const [response, setResponse] = useState<string>('');
+    type Message = {
+        sender: 'user' | 'bot';
+        text: string;
+    };
+
+    const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
 
     const openAiPanel = () => setAiPanelOpen(true);
@@ -77,20 +82,24 @@ export default function AiAssistant({ context }: AiAssistantProps) {
         e.preventDefault();
         if (!question.trim()) return;
 
+        const userMessage = { sender: 'user', text: question };
+
+        setMessages((prev) => [...prev, userMessage]);
         setLoading(true);
+
         try {
-            console.log('AiAssistant: Starting chatbot request', { question: question.substring(0, 50) + '...' });
             const result = await ChatbotService.askChatbot(question, context);
-            console.log('AiAssistant: Chatbot request successful');
-            setResponse(result.answer);
+            const botMessage = { sender: 'bot', text: result.answer };
+
+            setMessages((prev) => [...prev, botMessage]);
         } catch (error) {
-            console.error('AiAssistant: Chatbot request failed', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-            setResponse('Error: Could not get response from chatbot');
+            setMessages((prev) => [
+                ...prev,
+                { sender: 'bot', text: 'Error: Could not get response from chatbot' }
+            ]);
         } finally {
             setLoading(false);
+            setQuestion('');
         }
     };
 
@@ -115,11 +124,18 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                     </div>
 
                     <div className="ai-response">
-                        {response ? (
-                            <p>{response}</p>
-                        ) : (
+                        {messages.length === 0 && (
                             <p className="text-gray-400">Ask me something...</p>
                         )}
+
+                        {messages.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
+                            >
+                                <p>{msg.text}</p>
+                            </div>
+                        ))}
                     </div>
 
                     <form onSubmit={handleSubmit} className="ai-form">

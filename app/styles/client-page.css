@@ -69,3 +69,21 @@
 .tabs-panel {
   @apply p-0;
 }
+
+.chat-message {
+  max-width: 70%;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.chat-message.bot {
+  background-color: #f3f4f6; /* lys grå */
+  align-self: flex-start;
+}
+
+.chat-message.user {
+  background-color: #3b82f6; /* blå */
+  color: white;
+  align-self: flex-end;
+}
