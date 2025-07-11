@@ -78,7 +78,9 @@ export default function AiAssistant({ context }: AiAssistantProps) {
     const openAiPanel = () => setAiPanelOpen(true);
     const closeAiPanel = () => setAiPanelOpen(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (
+        e: React.FormEvent | React.KeyboardEvent
+    ) => {
         e.preventDefault();
         if (!question.trim()) return;
 
@@ -142,6 +144,12 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                         <textarea
                             value={question}
                             onChange={(e) => setQuestion(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault(); // Unngå ny linje
+                                    handleSubmit(e);
+                                }
+                            }}
                             placeholder="Ask your question..."
                             className="ai-textarea"
                             rows={3}
