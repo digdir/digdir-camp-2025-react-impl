@@ -113,7 +113,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                 className="ai-button"
                 title="Åpne AI-hjelp"
             >
-        🤖 DesKI
+                DesKI
             </button>
 
             {aiPanelOpen && (
@@ -138,6 +138,16 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                                 <p>{msg.text}</p>
                             </div>
                         ))}
+
+                        {loading && (
+                            <div className="chat-message bot">
+                                <div className="typing-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <form onSubmit={handleSubmit} className="ai-form">
