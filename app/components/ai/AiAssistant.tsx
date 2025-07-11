@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import '~/styles/client-page.css';
 
 interface AiAssistantProps {
@@ -78,7 +78,9 @@ export default function AiAssistant({ context }: AiAssistantProps) {
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const openAiPanel = () => setAiPanelOpen(true);
-    const closeAiPanel = () => setAiPanelOpen(false);
+    const closeAiPanel = () => {
+        setAiPanelOpen(false);
+    };
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({
@@ -117,75 +119,79 @@ export default function AiAssistant({ context }: AiAssistantProps) {
     return (
         <>
             <button
-                onClick={openAiPanel}
+                onClick={() => {
+                    if (aiPanelOpen) {
+                        closeAiPanel();
+                    } else {
+                        openAiPanel();
+                    }
+                }}
                 type="button"
-                className="ai-button"
+                className={`ai-button ${aiPanelOpen ? 'move-left' : ''}`}
                 title="Åpne AI-hjelp"
             >
                 DesKI
             </button>
 
-            {aiPanelOpen && (
-                <div className="ai-panel">
-                    <div className="ai-panel-header">
-                        <h3 className="ai-panel-title">DesKI Assistant</h3>
-                        <button onClick={closeAiPanel} className="ai-panel-close">
-                            X
-                        </button>
-                    </div>
-
-                    <div className="ai-response">
-                        {messages.length === 0 && (
-                            <p className="text-gray-400">Ask me something...</p>
-                        )}
-
-                        {messages.map((msg, idx) => (
-                            <div
-                                key={idx}
-                                className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
-                            >
-                                <p>{msg.text}</p>
-                            </div>
-                        ))}
-
-                        {loading && (
-                            <div className="chat-message bot">
-                                <div className="typing-indicator">
-                                    <span></span>
-                                    <span></span>
-                                    <span></span>
-                                </div>
-                            </div>
-                        )}
-
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="ai-form">
-                        <textarea
-                            value={question}
-                            onChange={(e) => setQuestion(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault(); // Unngå ny linje
-                                    handleSubmit(e);
-                                }
-                            }}
-                            placeholder="Ask your question..."
-                            className="ai-textarea"
-                            rows={3}
-                            disabled={loading}
-                        />
-                        <button
-                            type="submit"
-                            disabled={loading || !question.trim()}
-                            className="ai-submit-button"
-                        >
-                            {loading ? 'Asking...' : 'Ask'}
-                        </button>
-                    </form>
+            <div className={`ai-panel ${aiPanelOpen ? 'slide-in' : 'slide-out'}`}>
+                <div className="ai-panel-header">
+                    <h3 className="ai-panel-title">DesKI Assistant</h3>
+                    <button onClick={closeAiPanel} className="ai-panel-close">
+                        X
+                    </button>
                 </div>
-            )}
+
+                <div className="ai-response">
+                    {messages.length === 0 && (
+                        <p className="text-gray-400">Ask me something...</p>
+                    )}
+
+                    {messages.map((msg, idx) => (
+                        <div
+                            key={idx}
+                            className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
+                        >
+                            <p>{msg.text}</p>
+                        </div>
+                    ))}
+
+                    {loading && (
+                        <div className="chat-message bot">
+                            <div className="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                </div>
+
+                <form onSubmit={handleSubmit} className="ai-form">
+                    <textarea
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault(); // Unngå ny linje
+                                handleSubmit(e);
+                            }
+                        }}
+                        placeholder="Ask your question..."
+                        className="ai-textarea"
+                        rows={3}
+                        disabled={loading}
+                    />
+                    <button
+                        type="submit"
+                        disabled={loading || !question.trim()}
+                        className="ai-submit-button"
+                    >
+                        {loading ? 'Asking...' : 'Ask'}
+                    </button>
+                </form>
+            </div>
         </>
     );
 }

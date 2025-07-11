@@ -11,6 +11,12 @@
   font-bold
   transition-all duration-200
   shadow-xl;
+  transition: right 0.4s ease, transform 0.4s ease;
+}
+
+.ai-button.move-left {
+  right: 500px;
+  transform: scale(0.95);
 }
 
 /* AI Panel Styles */
@@ -20,6 +26,19 @@
   flex-direction: column;
   padding: 1.5rem;
   border-left: 1px solid #e5e7eb;
+  transform: translateX(100%);
+  transition: transform 0.4s ease;
+  opacity: 0;
+}
+
+.ai-panel.slide-in {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.ai-panel.slide-out {
+  transform: translateX(100%);
+    opacity: 0;
 }
 
 .ai-panel-header {
