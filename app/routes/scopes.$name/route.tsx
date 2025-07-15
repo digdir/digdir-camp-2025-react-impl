@@ -14,8 +14,6 @@ import { Authorization } from '~/lib/auth';
 import { StatusColor, StatusMessage } from '~/lib/status';
 import AiPanel from '~/components/AiPanel';
 import { useState } from 'react';
-import AiPanel from '~/components/AiPanel';
-import { useState } from 'react';
 
 export enum ActionIntent {
     UpdateScope = 'updateScope',
