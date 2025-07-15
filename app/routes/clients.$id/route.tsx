@@ -1,5 +1,6 @@
 import { ClientActionFunctionArgs, ClientLoaderFunctionArgs, redirect, useLoaderData } from 'react-router';
 import { Tabs } from '@digdir/designsystemet-react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { ApiClient, ApiResponse } from '~/lib/api_client';
@@ -14,30 +15,60 @@ import { Authorization } from '~/lib/auth';
 import { StatusColor, StatusMessage } from '~/lib/status';
 import AiAssistant from '~/components/ai/AiAssistant';
 import { ContextBuilder } from '~/lib/context-builder';
+
 import '~/styles/client-page.css';
 
 import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
 
+/**
+ * Loader function for the client page. Fetches client details, JWKs, scopes, and onBehalfOf information.
+ *
+ * @param params - The parameters from the route, including the client ID.
+ */
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     await Authorization.requireAuthenticatedUser();
     const clientId = params.id!;
     const apiClient = await ApiClient.create();
 
     const { data: client, error } = await apiClient.getClient(clientId);
-
     if (error) {
         return error.toErrorResponse();
     }
 
-    const actualIntegrationType = client.integration_type === 'api_klient' ? 'api_client' : client.integration_type;
+    const actualIntegrationType = 'ID_PORTEN'; // liten skrift
 
     const JWK = await apiClient.getJwks(client.client_id!);
 
-    const scopesAccessibleForAll = apiClient.getAccessibleForAllScopes(actualIntegrationType!);
-    const scopesWithDelegationSource = apiClient.getScopesWithDelegationSource(actualIntegrationType!);
-    const scopesAvailableToOrganization = apiClient.getScopesAccessibleToUsersOrganization();
+    const { data: scopesAccessibleForAll, error: error1 } = await apiClient.apiClient.GET('/api/v1/scopes/all', {
+        params: {
+            query: {
+                accessible_for_all: true,
+                integration_type: actualIntegrationType
+            }
+        }
+    });
+    if (error1) {
+        console.error('Error fetching scopesAccessibleForAll:', error1);
+    }
+
+    const { data: scopesWithDelegationSource, error: error2 } = await apiClient.apiClient.GET('/api/v1/scopes/all', {
+        params: {
+            query: {
+                delegated_sources: true,
+                integration_type: actualIntegrationType
+            }
+        }
+    });
+    if (error2) {
+        console.error('Error fetching scopesWithDelegationSource:', error2);
+    }
+
+    const { data: scopesAvailableToOrganization, error: error3 } = await apiClient.getScopesAccessibleToUsersOrganization();
+    if (error3) {
+        console.error('Error fetching scopesAvailableToOrganization:', error3);
+    }
 
     const { data: onBehalfOf } = await apiClient.getAllOnBehalfOf(client.client_id!);
 
@@ -45,12 +76,18 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
         client,
         JWK: JWK.data ?? [],
         onBehalfOf,
-        scopesAccessibleForAll,
-        scopesWithDelegationSource,
-        scopesAvailableToOrganization
+        scopesAccessibleForAll: scopesAccessibleForAll ?? [],
+        scopesWithDelegationSource: scopesWithDelegationSource ?? [],
+        scopesAvailableToOrganization: scopesAvailableToOrganization ?? []
     };
 }
 
+/**
+ * Handles the deletion of a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to be deleted.
+ */
 async function handleDeleteClient(clientService: ClientService, clientId: string) {
     const apiResponse = await clientService.deleteClient(clientId);
     if (!apiResponse.error) {
@@ -60,24 +97,53 @@ async function handleDeleteClient(clientService: ClientService, clientId: string
     return { apiResponse };
 }
 
+/**
+ * Handles the update of a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to be updated.
+ * @param formData - The form data containing the updated client information.
+ */
 async function handleUpdateClient(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.updateClient(clientId, formData);
     const statusMessage = !apiResponse.error ? 'client_page.successful_update' : '';
     return { apiResponse, statusMessage };
 }
 
+/**
+ * Handles the addition of a JWK (JSON Web Key) to a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to which the JWK will be added.
+ * @param formData - The form data containing the JWK to be added.
+ */
 async function handleAddKey(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.addKey(clientId, formData.get('jwk') as string);
     const statusMessage = !apiResponse.error ? 'client_page.successful_jwk_add' : '';
     return { apiResponse, statusMessage };
 }
 
+/**
+ * Handles the addition of a scope to a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to which the scope will be added.
+ * @param formData - The form data containing the scopes to be added.
+ */
 async function handleAddScope(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.addScope(clientId, formData.getAll('scopes') as string[]);
     const statusMessage = !apiResponse.error ? 'client_page.successful_scope_add' : '';
     return { apiResponse, statusMessage };
 }
 
+/**
+ * Handles actions related to "On Behalf Of" functionality for a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client for which the action is performed.
+ * @param formData - The form data containing the details for the "On Behalf Of" action.
+ * @param intent - The intent of the action, which can be to add, edit, or delete an "On Behalf Of" entry.
+ */
 async function handleOnBehalfOfActions(clientService: ClientService, clientId: string, formData: FormData, intent: string) {
     let apiResponse: ApiResponse<any>;
     let messageKey: string;
@@ -105,6 +171,12 @@ async function handleOnBehalfOfActions(clientService: ClientService, clientId: s
     return { apiResponse };
 }
 
+/**
+ * Handles client actions based on the intent specified in the request.
+ *
+ * @param request - The request object containing the form data and action intent.
+ * @param params - The parameters from the route, including the client ID.
+ */
 export async function clientAction({ request, params }: ClientActionFunctionArgs) {
     const clientId = params.id!;
     const formData = await request.formData();
@@ -162,47 +234,76 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
     return result.apiResponse?.data ? { data: result.apiResponse.data } : null;
 }
 
+/**
+ * ClientPage component. This component displays the details of a client, including its keys, scopes, and "On Behalf Of" information.
+ *
+ * @constructor - The constructor initializes the component state and handles the loading of client data.
+ */
 export default function ClientPage() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
+    const [context, setContext] = useState<any>(null);
 
-    if (isErrorResponse(data)) {
-        return <AlertWrapper message={data.error} type="error"/>;
+    const isError = isErrorResponse(data);
+
+    useEffect(() => {
+        if (isError) return;
+
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildClientContext(
+                data.client,
+                data.JWK ?? [],
+                data.onBehalfOf ?? [],
+                data.scopesAccessibleForAll ?? [],
+                data.scopesWithDelegationSource ?? [],
+                data.scopesAvailableToOrganization ?? []
+            );
+            console.log('Context JSON:\n', JSON.stringify(builtContext, null, 2));
+            setContext(builtContext);
+        };
+        void loadContext();
+    }, [data, isError]);
+
+    if (isError) {
+        return <AlertWrapper message={data.error} type="error" />;
     }
 
-    const { client, JWK, onBehalfOf, scopesAccessibleForAll, scopesWithDelegationSource, scopesAvailableToOrganization } = data;
-
-    const buildContext = async () => {
-        return await ContextBuilder.buildClientContext(
-            client,
-            JWK,
-            onBehalfOf,
-            scopesAccessibleForAll,
-            scopesWithDelegationSource,
-            scopesAvailableToOrganization
-        );
-    };
+    const {
+        client,
+        JWK,
+        onBehalfOf,
+        scopesAccessibleForAll,
+        scopesWithDelegationSource,
+        scopesAvailableToOrganization
+    } = data;
 
     return (
         <div className="relative">
-            <AiAssistant context={buildContext} />
+            <AiAssistant context={context} />
 
             <Tabs defaultValue="details">
                 <Tabs.List className="tabs-list">
                     <div className="tabs-heading">
-                        <HeadingWrapper level={2} translate={false} heading={client.client_name ?? ''} className="tabs-heading-wrapper"/>
+                        <HeadingWrapper
+                            level={2}
+                            translate={false}
+                            heading={client.client_name ?? ''}
+                            className="tabs-heading-wrapper"
+                        />
                     </div>
                     <div className="tabs-container">
                         <Tabs.Tab value="details" className="tab-item">
                             {t('client_page.details')}
                         </Tabs.Tab>
                         <Tabs.Tab value="keys" className="tab-item">
-                            {t('key', { count: 0 })}
+                            {t('key', { count: JWK.length })}
                         </Tabs.Tab>
                         <Tabs.Tab value="scopes" className="tab-item">
                             {t('scope', { count: 0 })}
                         </Tabs.Tab>
-                        {(client.integration_type === IntegrationType.IDPORTEN || client.integration_type === IntegrationType.API_KLIENT || client.integration_type === IntegrationType.KRR) && (
+                        {(client.integration_type === IntegrationType.IDPORTEN ||
+                            client.integration_type === IntegrationType.API_KLIENT ||
+                            client.integration_type === IntegrationType.KRR) && (
                             <Tabs.Tab value="onBehalfOf" className="tab-item">
                                 OnBehalfOf
                             </Tabs.Tab>
@@ -211,22 +312,22 @@ export default function ClientPage() {
                 </Tabs.List>
 
                 <Tabs.Panel value="details" className="tabs-panel">
-                    <Details client={client}/>
+                    <Details client={client} />
                 </Tabs.Panel>
                 <Tabs.Panel value="keys" className="tabs-panel">
-                    <Keys jwks={JWK ?? []}/>
+                    <Keys jwks={JWK ?? []} />
                 </Tabs.Panel>
                 <Tabs.Panel value="scopes" className="tabs-panel">
                     <Scopes
                         scopes={client.scopes ?? []}
-                        scopesAccessibleForAll={scopesAccessibleForAll}
-                        scopesWithDelegationSource={scopesWithDelegationSource}
-                        scopesAvailableToOrganization={scopesAvailableToOrganization}
+                        scopesAccessibleForAll={scopesAccessibleForAll as any}
+                        scopesWithDelegationSource={scopesWithDelegationSource as any}
+                        scopesAvailableToOrganization={scopesAvailableToOrganization as any}
                         clientIntegrationType={client.integration_type}
                     />
                 </Tabs.Panel>
                 <Tabs.Panel value="onBehalfOf" className="tabs-panel">
-                    <OnBehalfOf onBehalfOfs={onBehalfOf!}/>
+                    <OnBehalfOf onBehalfOfs={onBehalfOf!} />
                 </Tabs.Panel>
             </Tabs>
         </div>

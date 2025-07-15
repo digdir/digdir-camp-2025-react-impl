@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import '~/styles/client-page.css';
+import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Props for the AiAssistant component.
+ */
 interface AiAssistantProps {
   context?: any;
 }
 
+/**
+ * Response structure from the chatbot service.
+ */
 interface ChatbotResponse {
   answer: string;
   source?: string;
 }
 
+/**
+ * Service to interact with the chatbot API.
+ * Handles sending questions and receiving answers.
+ */
 class ChatbotService {
     private static readonly BASE_URL = 'http://localhost:8000';
 
@@ -26,6 +37,8 @@ class ChatbotService {
                 ...(context && { context })
             };
 
+            console.log('ChatbotService: sending context:', JSON.stringify(context, null, 2));
+
             const response = await fetch(`${this.BASE_URL}/copilot/`, {
                 method: 'POST',
                 headers: {
@@ -41,13 +54,12 @@ class ChatbotService {
                     statusText: response.statusText,
                     errorBody: errorText
                 });
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
             }
 
             const data = await response.json();
             console.log('ChatbotService: Successfully parsed response', {
                 hasAnswer: !!data.answer,
-                answerLength: data.answer?.length || 0,
+                answerLength: data.answer?.length ?? 0,
                 hasSource: !!data.source
             });
 
@@ -64,11 +76,18 @@ class ChatbotService {
     }
 }
 
-export default function AiAssistant({ context }: AiAssistantProps) {
+/**
+ * AiAssistant component. This component provides an AI assistant interface for users to ask questions.
+ *
+ * @param context - The context to be used by the AI assistant, which can include client information, scopes, and other relevant data.
+ * @constructor - The constructor initializes the component state and handles user interactions.
+ */
+export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
     const [aiPanelOpen, setAiPanelOpen] = useState(false);
     const [question, setQuestion] = useState('');
 
     type Message = {
+        id: string;
         sender: 'user' | 'bot';
         text: string;
     };
@@ -95,18 +114,27 @@ export default function AiAssistant({ context }: AiAssistantProps) {
         e.preventDefault();
         if (!question.trim()) return;
 
-        const userMessage = { sender: 'user', text: question };
+        if (!context) {
+            setMessages(prev => [
+                ...prev,
+                { id: uuidv4(), sender: 'bot', text: 'Konteksten er ikke klar. Prøv igjen om et øyeblikk.' }
+            ]);
+            return;
+        }
+
+        const userMessage = { id: uuidv4(), sender: 'user', text: question } as const;
         setMessages(prev => [...prev, userMessage]);
         setQuestion('');
         setLoading(true);
 
         try {
             const result = await ChatbotService.askChatbot(question, context);
+            console.log('ChatbotService: context being sent:', JSON.stringify(context, null, 2));
             const fullAnswer = result.answer;
 
 
-            let currentText = "";
-            setMessages(prev => [...prev, { sender: 'bot', text: currentText }]);
+            let currentText = '';
+            setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: currentText }]);
 
             let index = 0;
 
@@ -117,7 +145,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
 
                     const others = prev.slice(0, -1);
 
-                    return [...others, { sender: 'bot', text: currentText }];
+                    return [...others, { id: uuidv4(), sender: 'bot', text: currentText }];
                 });
 
                 if (index === fullAnswer.length) {
@@ -126,9 +154,15 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                 }
             }, 15);
         } catch (error) {
+            let message = 'Error: Could not get response from chatbot';
+
+            if (error instanceof Error) {
+                message = `Error: ${error.message}`;
+            }
+
             setMessages(prev => [
                 ...prev,
-                { sender: 'bot', text: 'Error: Could not get response from chatbot' }
+                { id: uuidv4(), sender: 'bot', text: message }
             ]);
             setLoading(false);
         }
@@ -168,9 +202,9 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                         <p className="text-gray-400">Spør meg om noe...</p>
                     )}
 
-                    {messages.map((msg, idx) => (
+                    {messages.map((msg) => (
                         <div
-                            key={idx}
+                            key={msg.id}
                             className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
                         >
                             <p>{msg.text}</p>
@@ -196,7 +230,7 @@ export default function AiAssistant({ context }: AiAssistantProps) {
                         onChange={(e) => setQuestion(e.target.value)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault(); // Unngå ny linje
+                                e.preventDefault();
                                 handleSubmit(e);
                             }
                         }}
