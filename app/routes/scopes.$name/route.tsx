@@ -1,6 +1,7 @@
 import { ClientActionFunctionArgs, ClientLoaderFunctionArgs, redirect, useActionData, useLoaderData } from 'react-router';
 import { Paragraph, Tabs } from '@digdir/designsystemet-react';
 import { ExclamationmarkTriangleIcon } from '@navikt/aksel-icons';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { ApiClient, ApiResponse } from '~/lib/api_client';
@@ -12,8 +13,7 @@ import AlertWrapper from '~/components/util/AlertWrapper';
 import { isErrorResponse } from '~/lib/errors';
 import { Authorization } from '~/lib/auth';
 import { StatusColor, StatusMessage } from '~/lib/status';
-
-import { useState } from 'react';
+import { ContextBuilder } from '~/lib/context-builder';
 import AiAssistant from '~/components/ai/AiAssistant';
 
 export enum ActionIntent {
@@ -98,6 +98,7 @@ export default function ScopePage() {
 
     const actionData = useActionData<typeof clientAction>();
     const data = useLoaderData<typeof clientLoader>();
+    const [context, setContext] = useState<any>(null);
 
     if (isErrorResponse(data)) {
         return <AlertWrapper message={data.error} type="error"/>;
@@ -105,14 +106,30 @@ export default function ScopePage() {
 
     const { scope, scopesWithAccess, delegationSources } = data;
 
-    const context = {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+        if (!scope) return;
+
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildScopeContext(
+                scope,
+                scopesWithAccess,
+                delegationSources
+            );
+            console.log('Scope context:\n', JSON.stringify(builtContext, null, 2));
+            setContext(builtContext);
+        };
+        void loadContext();
+    }, [scope, scopesWithAccess, delegationSources]);
+
+    const staticContext = {
         page: 'scope-details',
-        info: 'Dette er selvbetjening forsiden'
+        info: 'Dette er selvbetjening scopesiden'
     };
     
     return (
         <div>
-            <AiAssistant context={context} />
+            <AiAssistant context={{ ...context, ...staticContext }} />
             <Tabs defaultValue="accesses">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
                     <div className='col-span-12'>
