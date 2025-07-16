@@ -49,4 +49,17 @@ export class ContextBuilder {
             scopes
         };
     }
+
+    static async buildScopesContext(scopes: any[], scopePrefixes: any[]): Promise<any> {
+        return {
+            scopes: scopes.map(s => ({
+                name: s.name,
+                description: s.description,
+                prefix: s.prefix,
+                active: s.active,
+                created: s.created
+            })),
+            scopePrefixes: scopePrefixes.map(p => p.prefix)
+        };
+    }
 }
