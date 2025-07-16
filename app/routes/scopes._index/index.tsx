@@ -145,7 +145,7 @@ export default function Scopes() {
     }
 
     const context = {
-        page: 'home',
+        page: 'scopes',
         info: 'Dette er selvbetjening forsiden'
     };
 

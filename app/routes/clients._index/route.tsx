@@ -121,7 +121,7 @@ export default function Clients() {
     }
 
     const context = {
-        page: 'home',
+        page: 'clients',
         info: 'Dette er selvbetjening forsiden'
     };
 

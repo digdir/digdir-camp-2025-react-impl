@@ -106,7 +106,7 @@ export default function ScopePage() {
     const { scope, scopesWithAccess, delegationSources } = data;
 
     const context = {
-        page: 'home',
+        page: 'scope-details',
         info: 'Dette er selvbetjening forsiden'
     };
     

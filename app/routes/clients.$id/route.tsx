@@ -277,9 +277,14 @@ export default function ClientPage() {
         scopesAvailableToOrganization
     } = data;
 
+    const staticContext = {
+        page: 'client-details',
+        info: 'Dette er selvbetjening forsiden'
+    };
+
     return (
         <div className="relative">
-            <AiAssistant context={context} />
+            <AiAssistant context={{ ...context, ...staticContext }} />
 
             <Tabs defaultValue="details">
                 <Tabs.List className="tabs-list">

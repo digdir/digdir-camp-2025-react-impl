@@ -77,6 +77,27 @@ class ChatbotService {
     }
 }
 
+function getEmptyMessage(context?: any): string {
+    if (!context?.page) {
+        return 'Spør meg om noe...';
+    }
+
+    switch (context.page) {
+    case 'home':
+        return 'Her kan du spørre om relevant informasjon om hovedsiden.';
+    case 'clients':
+        return 'Her kan du stille spørsmål om klientene dine.';
+    case 'scopes':
+        return 'Her kan du stille spørsmål om scopes.';
+    case 'scope-details':
+        return 'Her kan du stille spørsmål om detaljer for dette scopet.';
+    case 'client-details':
+        return 'Her kan du stille spørsmål om detaljer for denne klienten.';
+    default:
+        return 'Spør meg om noe...';
+    }
+}
+
 /**
  * AiAssistant component. This component provides an AI assistant interface for users to ask questions.
  *
@@ -231,7 +252,7 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
 
                 <div className="ai-response">
                     {messages.length === 0 && (
-                        <p className="text-gray-400">Spør meg om noe...</p>
+                        <p className="text-gray-400">{getEmptyMessage(context)}</p>
                     )}
 
                     {messages.map((msg) => (
