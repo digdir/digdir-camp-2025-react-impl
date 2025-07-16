@@ -222,3 +222,22 @@
 .ai-response::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.ai-clear-button {
+  @apply inline-flex
+  items-center
+  justify-center
+  p-2
+  rounded-md
+  bg-gray-100
+  hover:bg-gray-200
+  text-gray-600
+  transition-colors
+  duration-150;
+  border: none;
+}
+
+.ai-clear-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+}

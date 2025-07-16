@@ -1,3 +1,4 @@
+import { TrashIcon } from '@navikt/aksel-icons';
 import { useEffect, useRef, useState } from 'react';
 import '~/styles/client-page.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -275,6 +276,14 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                         className="ai-submit-button"
                     >
                         {loading ? 'Genererer svar...' : 'Spør'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMessages([])}
+                        title="Tøm chat"
+                        className={`${loading ? 'hidden' : 'fixed bottom-10 right-[15rem] ai-clear-button'}`}
+                    >
+                        <TrashIcon fontSize="1.25rem" />
                     </button>
                 </form>
             </div>
