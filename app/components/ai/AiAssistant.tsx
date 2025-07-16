@@ -83,7 +83,14 @@ class ChatbotService {
  * @constructor - The constructor initializes the component state and handles user interactions.
  */
 export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
-    const [aiPanelOpen, setAiPanelOpen] = useState(false);
+    const PANEL_STATE_KEY = 'chatbot_panel_open';
+    const [aiPanelOpen, setAiPanelOpen] = useState(() => {
+        try {
+            return sessionStorage.getItem(PANEL_STATE_KEY) === 'true';
+        } catch {
+            return false;
+        }
+    });
     const [question, setQuestion] = useState('');
 
     type Message = {
@@ -92,7 +99,15 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         text: string;
     };
 
-    const [messages, setMessages] = useState<Message[]>([]);
+    const SESSION_KEY = 'chatbot_messages';
+    const [messages, setMessages] = useState<Message[]>(() => {
+        try {
+            const stored = sessionStorage.getItem(SESSION_KEY);
+            return stored ? JSON.parse(stored) : [];
+        } catch {
+            return [];
+        }
+    });
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -107,6 +122,22 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
             block: 'end'
         });
     }, [messages, loading]);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(messages));
+        } catch {
+            // ignore
+        }
+    }, [messages]);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(PANEL_STATE_KEY, String(aiPanelOpen));
+        } catch {
+            // ignore
+        }
+    }, [aiPanelOpen]);
 
     const handleSubmit = async (
         e: React.FormEvent | React.KeyboardEvent

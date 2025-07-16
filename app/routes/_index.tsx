@@ -33,8 +33,15 @@ export async function clientLoader() {
 
 export default function Home() {
     const { t } = useTranslation();
+
+    const context = {
+        page: 'home',
+        info: 'Dette er selvbetjening forsiden'
+    };
+
     return (
         <div className='py-16'>
+            <AiAssistant context={context} />
             <HeadingWrapper level={1} heading={t('home_page.heading')} className="font-medium"/>
 
             <div className='min-h-[700px] md:min-h-[650px] lg:min-h-[400px]'>

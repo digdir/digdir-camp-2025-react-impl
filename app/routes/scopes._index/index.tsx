@@ -144,9 +144,15 @@ export default function Scopes() {
         )
     }
 
+    const context = {
+        page: 'home',
+        info: 'Dette er selvbetjening forsiden'
+    };
+
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
+                <AiAssistant context={context} />
                 <HeadingWrapper className={'pe-3'} level={2} heading={t('scope', { count: 0 })}/>
                 <HelpText aria-label={t('scopes_helptext_aria')}> {t('scopes_helptext')} </HelpText>
                 {scopePrefixes!.length > 0 && <Button variant='primary' asChild className="px-6 shadow h-full ml-auto">
