@@ -40,4 +40,13 @@ export class ContextBuilder {
             delegationSources: delegationSources ?? []
         };
     }
+
+    static async buildHomeContext(clients: any[], scopes: any[]): Promise<any> {
+        return {
+            page: 'home',
+            info: 'Dette er selvbetjening forsiden',
+            clients,
+            scopes
+        };
+    }
 }

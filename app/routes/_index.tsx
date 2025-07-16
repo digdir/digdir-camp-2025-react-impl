@@ -1,10 +1,12 @@
 import { Card, Paragraph } from '@digdir/designsystemet-react';
 import { Link, MetaFunction, redirect } from 'react-router';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { ApiClient } from '~/lib/api_client';
 import { Authorization } from '~/lib/auth';
+import { ContextBuilder } from '~/lib/context-builder';
 import AiAssistant from '~/components/ai/AiAssistant';
 
 export const meta: MetaFunction = () => {
@@ -33,15 +35,32 @@ export async function clientLoader() {
 
 export default function Home() {
     const { t } = useTranslation();
+    const [context, setContext] = useState<any>(null);
 
-    const context = {
-        page: 'home',
+    useEffect(() => {
+        const loadContext = async () => {
+            const apiClient = await ApiClient.create();
+            const clientsResponse = await apiClient.getClients();
+            const scopesResponse = await apiClient.getScopes();
+            const builtContext = await ContextBuilder.buildHomeContext(
+                clientsResponse.data ?? [],
+                scopesResponse.data ?? []
+            );
+            setContext(builtContext);
+        };
+        void loadContext();
+    }, []);
+
+    if (!context) return null;
+
+    const staticContext = {
+        page: 'scopes',
         info: 'Dette er selvbetjening forsiden'
     };
 
     return (
         <div className='py-16'>
-            <AiAssistant context={context} />
+            <AiAssistant context={{ ...context, ...staticContext }} />
             <HeadingWrapper level={1} heading={t('home_page.heading')} className="font-medium"/>
 
             <div className='min-h-[700px] md:min-h-[650px] lg:min-h-[400px]'>
