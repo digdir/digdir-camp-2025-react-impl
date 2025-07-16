@@ -62,4 +62,14 @@ export class ContextBuilder {
             scopePrefixes: scopePrefixes.map(p => p.prefix)
         };
     }
+
+    static async buildClientsContext(clients: any[]) {
+        return {
+            clientsSummary: clients.map(c => ({
+                id: c.client_id,
+                name: c.client_name,
+                integrationType: c.integration_type
+            }))
+        };
+    }
 }

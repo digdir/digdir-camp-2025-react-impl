@@ -1,7 +1,7 @@
 import { Button, Dropdown, Paragraph, Search, Table } from '@digdir/designsystemet-react';
 import { Link, useLoaderData } from 'react-router';
 import { ChevronDownIcon, PlusIcon } from '@navikt/aksel-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { Client } from '~/lib/models';
@@ -13,7 +13,8 @@ import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
 import { ClientService } from '~/lib/clients';
-import AiAssistant from "~/components/ai/AiAssistant";
+import { ContextBuilder } from '~/lib/context-builder';
+import AiAssistant from '~/components/ai/AiAssistant';
 
 enum SortField {
     Name = 'client_name',
@@ -41,6 +42,7 @@ export async function clientLoader() {
 export default function Clients() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
+    const [context, setContext] = useState<any>(null);
 
     const [integrationTypeDropdownOpen, setIntegrationTypeDropdownOpen] = useState(false);
     const [selectedIntegrationType, setSelectedIntegrationType] = useState<string | null>(null);
@@ -57,6 +59,19 @@ export default function Clients() {
     }
 
     const { clients } = data;
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildClientsContext(clients ?? []);
+            setContext({
+                ...builtContext,
+                page: 'clients',
+                info: 'Dette er selvbetjening klientsiden'
+            });
+        };
+        void loadContext();
+    }, [clients]);
 
     const compareClients = (a: Client, b: Client, sortField: SortField) => {
         const result = a[sortField]!.localeCompare(b[sortField]!);
@@ -119,11 +134,6 @@ export default function Clients() {
             </>
         )
     }
-
-    const context = {
-        page: 'clients',
-        info: 'Dette er selvbetjening forsiden'
-    };
 
     return (
         <div>
