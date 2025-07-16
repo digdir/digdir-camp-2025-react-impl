@@ -13,6 +13,7 @@ import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
 import { ClientService } from '~/lib/clients';
+import AiAssistant from "~/components/ai/AiAssistant";
 
 enum SortField {
     Name = 'client_name',
@@ -119,9 +120,15 @@ export default function Clients() {
         )
     }
 
+    const context = {
+        page: 'home',
+        info: 'Dette er selvbetjening forsiden'
+    };
+
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
+                <AiAssistant context={context} />
                 <HeadingWrapper className={'pe-3'} level={2} heading={t('client', { count: 0 })}/>
                 <HelpText aria-label={t('clients_helptext_aria')}> {t('clients_helptext')} </HelpText>
                 <Button variant="primary" asChild className="px-6 shadow h-full ml-auto">

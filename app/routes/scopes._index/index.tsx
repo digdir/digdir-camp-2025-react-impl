@@ -13,6 +13,7 @@ import HeadingWrapper from '~/components/util/HeadingWrapper';
 import PersonFishing from '~/components/art/PersonFishing';
 import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
+import AiAssistant from "~/components/ai/AiAssistant";
 
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();

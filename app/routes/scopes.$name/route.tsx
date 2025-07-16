@@ -12,8 +12,9 @@ import AlertWrapper from '~/components/util/AlertWrapper';
 import { isErrorResponse } from '~/lib/errors';
 import { Authorization } from '~/lib/auth';
 import { StatusColor, StatusMessage } from '~/lib/status';
-import AiPanel from '~/components/AiPanel';
+
 import { useState } from 'react';
+import AiAssistant from '~/components/ai/AiAssistant';
 
 export enum ActionIntent {
     UpdateScope = 'updateScope',
@@ -102,33 +103,16 @@ export default function ScopePage() {
         return <AlertWrapper message={data.error} type="error"/>;
     }
 
-    const [aiPanelOpen, setAiPanelOpen] = useState(false);
-
     const { scope, scopesWithAccess, delegationSources } = data;
 
-     const openAiPanel = () => {
-        setAiPanelOpen(true);
-    };
-
-    const closeAiPanel = () => {
-        setAiPanelOpen(false);
+    const context = {
+        page: 'home',
+        info: 'Dette er selvbetjening forsiden'
     };
     
     return (
         <div>
-            {/* Fixed AI-flytknapp med secondary + blå hover */}
-            <button
-                onClick={openAiPanel}
-                type="button"
-                className="fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200"
-                
-                title="Åpne AI-hjelp"
-                >
-                🤖 DesKI
-            </button>
-
-            <AiPanel isOpen={aiPanelOpen} onClose={closeAiPanel} />
-
+            <AiAssistant context={context} />
             <Tabs defaultValue="accesses">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
                     <div className='col-span-12'>

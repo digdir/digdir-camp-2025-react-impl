@@ -5,6 +5,7 @@ import { useTranslation } from '~/lib/i18n';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { ApiClient } from '~/lib/api_client';
 import { Authorization } from '~/lib/auth';
+import AiAssistant from '~/components/ai/AiAssistant';
 
 export const meta: MetaFunction = () => {
     return [
