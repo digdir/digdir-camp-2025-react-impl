@@ -170,6 +170,7 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
             }
         })();
 
+    const [contextMessage, setContextMessage] = useState<string | null>(storedContextMessage);
     const lastContextMessageRef = useRef<string | null>(storedContextMessage);
     const lastContextLabelRef = useRef<string | null>(storedContextLabel);
 
@@ -231,6 +232,7 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
             const contextMessage = `Byttet kontekst til: ${currentContextLabel}`;
             lastContextMessageRef.current = contextMessage;
             lastContextLabelRef.current = currentContextLabel;
+            setContextMessage(contextMessage);
 
             try {
                 sessionStorage.setItem(CONTEXT_MESSAGE_KEY, contextMessage);
@@ -343,9 +345,11 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="ai-form">
-                    <div className="ai-context-label">
-                        {lastContextMessageRef.current}
-                    </div>
+                    {contextMessage && (
+                        <div className="ai-context-label">
+                            {contextMessage}
+                        </div>
+                    )}
                     <textarea
                         value={question}
                         onChange={(e) => setQuestion(e.target.value)}
@@ -372,6 +376,7 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                             setMessages([]);
                             lastContextLabelRef.current = null;
                             lastContextMessageRef.current = null;
+                            setContextMessage(null);
 
                             try {
                                 sessionStorage.removeItem(CONTEXT_MESSAGE_KEY);
