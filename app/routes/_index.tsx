@@ -9,6 +9,9 @@ import { Authorization } from '~/lib/auth';
 import { ContextBuilder } from '~/lib/context-builder';
 import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Meta function to set the page title and description for the home page.
+ */
 export const meta: MetaFunction = () => {
     return [
         { title: 'Digdir Selvbetjening' },
@@ -16,6 +19,12 @@ export const meta: MetaFunction = () => {
     ];
 };
 
+/**
+ * Loader function to fetch the prefixes for the organization number.
+ * It requires the user to be authenticated and redirects to '/clients' if no prefixes are found.
+ *
+ * @returns An empty object if successful, or an error response if there was an error fetching the prefixes.
+ */
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();
 
@@ -33,6 +42,11 @@ export async function clientLoader() {
     return {};
 }
 
+/**
+ * Home component that serves as the main page for the application.
+ *
+ * @constructor - This component fetches the necessary context for the home page,
+ */
 export default function Home() {
     const { t } = useTranslation();
     const [context, setContext] = useState<any>(null);
@@ -58,6 +72,9 @@ export default function Home() {
         info: 'Dette er selvbetjening forsiden'
     };
 
+    /**
+     * Renders the home page with a heading, AI assistant, and links to client and scope configurations.
+     */
     return (
         <div className='py-16'>
             <AiAssistant context={{ ...context, ...staticContext }} />
