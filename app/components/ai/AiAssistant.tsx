@@ -210,7 +210,7 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
 
         const currentContextLabel = getContextLabel(context);
 
-        lastContextMessageRef.current ??= `Byttet kontekst til: ${currentContextLabel}`;
+        lastContextMessageRef.current ??= `Nåværende kontekst: ${currentContextLabel}`;
 
         const prevContextLabel = lastContextLabelRef.current;
 
@@ -230,12 +230,18 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
 
         if (!prevContextLabel || prevContextLabel !== currentContextLabel) {
             const contextMessage = `Byttet kontekst til: ${currentContextLabel}`;
-            lastContextMessageRef.current = contextMessage;
+            lastContextMessageRef.current = `Nåværende kontekst: ${currentContextLabel}`;
             lastContextLabelRef.current = currentContextLabel;
-            setContextMessage(contextMessage);
+            setContextMessage(`Nåværende kontekst: ${currentContextLabel}`);
+
+            newMessages.push({
+                id: uuidv4(),
+                sender: 'bot',
+                text: contextMessage
+            });
 
             try {
-                sessionStorage.setItem(CONTEXT_MESSAGE_KEY, contextMessage);
+                sessionStorage.setItem(CONTEXT_MESSAGE_KEY, `Nåværende kontekst: ${currentContextLabel}`);
                 sessionStorage.setItem(CONTEXT_LABEL_KEY, currentContextLabel);
             } catch {
                 // ignore
@@ -325,7 +331,13 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                     {messages.map((msg) => (
                         <div
                             key={msg.id}
-                            className={`chat-message ${msg.sender === 'user' ? 'user' : 'bot'}`}
+                            className={`chat-message ${
+                                msg.text.startsWith('Byttet kontekst til:')
+                                    ? 'system'
+                                    : msg.sender === 'user'
+                                        ? 'user'
+                                        : 'bot'
+                            }`}
                         >
                             <p>{msg.text}</p>
                         </div>

@@ -253,3 +253,17 @@
   margin-bottom: 0.75rem;
   border: 1px solid #bae6fd;
 }
+
+.chat-message.system {
+  background: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-style: italic;
+  align-self: flex-end;
+  padding: 0.2rem 0.5rem;
+  margin-bottom: 0.5rem;
+  max-width: 80%;
+  text-align: right;
+  box-shadow: none;
+  border: none;
+}
