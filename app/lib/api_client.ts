@@ -10,13 +10,18 @@ import { StatusColor, StatusMessage } from './status';
 
 import type { paths } from '~/lib/api';
 
+/**
+ * Type representing the API response structure.
+ */
 export type ApiResponse<T> =
     | { data: T; error?: never }
     | { data?: never; error: ApiError };
 
-
+/**
+ * ApiClient class to interact with the OpenAPI-based API.
+ */
 export class ApiClient {
-    private readonly apiClient: OpenApiClient<paths>;
+    readonly apiClient: OpenApiClient<paths>;
 
     constructor(apiUrl: string) {
         const authMiddleware: Middleware = {
@@ -25,11 +30,11 @@ export class ApiClient {
                 if (!ok) {
                     StatusMessage.set('missing_session_data', StatusColor.danger);
                     throw redirect('/login');
-                } 
+                }
                 request.headers.set('Authorization', `Bearer ${Authorization.accessToken}`);
                 return request;
             },
-        
+
             async onResponse({ response }) {
                 if (response.status === 401) {
                     throw new Error('Received 401 unauthorized from API');
@@ -368,7 +373,7 @@ export class ApiClient {
     public async getScopesWithDelegationSource(integration_type: string): Promise<ApiResponse<Scope[]>> {
         const { data, error } = await this.apiClient.GET('/api/v1/scopes/all', {
             params: {
-                query: { 
+                query: {
                     delegated_sources: true,
                     integration_type: integration_type.toUpperCase()
                 }
