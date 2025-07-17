@@ -25,6 +25,13 @@ interface ChatbotResponse {
 class ChatbotService {
     private static readonly BASE_URL = 'http://localhost:8000';
 
+    /**
+     * Sends a question to the chatbot and returns the response.
+     *
+     * @param question - The question to ask the chatbot.
+     * @param context - Optional context to provide additional information for the question.
+     * @returns A promise that resolves to the chatbot response.
+     */
     static async askChatbot(question: string, context?: any): Promise<ChatbotResponse> {
         try {
             console.log('ChatbotService: Sending request to chatbot', {
@@ -77,6 +84,13 @@ class ChatbotService {
     }
 }
 
+/**
+ * Returns a default message based on the current context.
+ * If no context is provided, it returns a generic message.
+ *
+ * @param context - The current context of the AI assistant.
+ * @returns A string message indicating what the user can ask about.
+ */
 function getEmptyMessage(context?: any): string {
     if (!context?.page) {
         return 'Spør meg om noe...';
@@ -98,6 +112,13 @@ function getEmptyMessage(context?: any): string {
     }
 }
 
+/**
+ * Returns a label for the current context.
+ * This label is used to inform the user about the current context of the AI assistant.
+ *
+ * @param context - The current context of the AI assistant.
+ * @returns A string label indicating the current context.
+ */
 function getContextLabel(context?: any): string {
     if (!context?.page) return 'Ingen kontekst';
     switch (context.page) {
@@ -174,13 +195,15 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
     const lastContextMessageRef = useRef<string | null>(storedContextMessage);
     const lastContextLabelRef = useRef<string | null>(storedContextLabel);
 
-
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const openAiPanel = () => setAiPanelOpen(true);
     const closeAiPanel = () => {
         setAiPanelOpen(false);
     };
 
+    /**
+     * Scrolls to the bottom of the chat messages whenever new messages are added or loading state changes.
+     */
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({
             behavior: 'smooth',
@@ -188,6 +211,10 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         });
     }, [messages, loading]);
 
+    /**
+     * Saves the current messages and AI panel state to session storage whenever they change.
+     * This ensures that the state persists across page reloads.
+     */
     useEffect(() => {
         try {
             sessionStorage.setItem(SESSION_KEY, JSON.stringify(messages));
@@ -196,6 +223,10 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         }
     }, [messages]);
 
+    /**
+     * Saves the AI panel state to session storage whenever it changes.
+     * This allows the panel to maintain its open/closed state across page reloads.
+     */
     useEffect(() => {
         try {
             sessionStorage.setItem(PANEL_STATE_KEY, String(aiPanelOpen));
@@ -204,6 +235,11 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         }
     }, [aiPanelOpen]);
 
+    /**
+     * Handles the submission of a question to the AI assistant.
+     *
+     * @param e - The event triggered by the form submission or key press.
+     */
     const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
         e.preventDefault();
         if (!question.trim()) return;
@@ -294,6 +330,9 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         }
     };
 
+    /**
+     * Renders the AI assistant interface.
+     */
     return (
         <>
             <button
