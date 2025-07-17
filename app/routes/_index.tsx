@@ -54,7 +54,7 @@ export default function Home() {
     if (!context) return null;
 
     const staticContext = {
-        page: 'scopes',
+        page: 'home',
         info: 'Dette er selvbetjening forsiden'
     };
 

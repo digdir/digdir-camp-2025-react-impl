@@ -98,6 +98,24 @@ function getEmptyMessage(context?: any): string {
     }
 }
 
+function getContextLabel(context?: any): string {
+    if (!context?.page) return 'Ingen kontekst';
+    switch (context.page) {
+    case 'home':
+        return 'Hovedsiden';
+    case 'clients':
+        return 'Klientoversikten';
+    case 'scopes':
+        return 'Scopesiden';
+    case 'scope-details':
+        return 'Scope-detaljer';
+    case 'client-details':
+        return 'Klient-detaljer';
+    default:
+        return 'Ukjent kontekst';
+    }
+}
+
 /**
  * AiAssistant component. This component provides an AI assistant interface for users to ask questions.
  *
@@ -106,6 +124,8 @@ function getEmptyMessage(context?: any): string {
  */
 export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
     const PANEL_STATE_KEY = 'chatbot_panel_open';
+    const CONTEXT_MESSAGE_KEY = 'chatbot_last_context_message';
+    const CONTEXT_LABEL_KEY = 'chatbot_last_context_label';
     const [aiPanelOpen, setAiPanelOpen] = useState(() => {
         try {
             return sessionStorage.getItem(PANEL_STATE_KEY) === 'true';
@@ -131,8 +151,30 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         }
     });
     const [loading, setLoading] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+    const storedContextMessage =
+        (() => {
+            try {
+                return sessionStorage.getItem(CONTEXT_MESSAGE_KEY);
+            } catch {
+                return null;
+            }
+        })();
+
+    const storedContextLabel =
+        (() => {
+            try {
+                return sessionStorage.getItem(CONTEXT_LABEL_KEY);
+            } catch {
+                return null;
+            }
+        })();
+
+    const lastContextMessageRef = useRef<string | null>(storedContextMessage);
+    const lastContextLabelRef = useRef<string | null>(storedContextLabel);
+
+
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const openAiPanel = () => setAiPanelOpen(true);
     const closeAiPanel = () => {
         setAiPanelOpen(false);
@@ -161,43 +203,68 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
         }
     }, [aiPanelOpen]);
 
-    const handleSubmit = async (
-        e: React.FormEvent | React.KeyboardEvent
-    ) => {
+    const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
         e.preventDefault();
         if (!question.trim()) return;
+
+        const currentContextLabel = getContextLabel(context);
+
+        lastContextMessageRef.current ??= `Byttet kontekst til: ${currentContextLabel}`;
+
+        const prevContextLabel = lastContextLabelRef.current;
 
         if (!context) {
             setMessages(prev => [
                 ...prev,
-                { id: uuidv4(), sender: 'bot', text: 'Konteksten er ikke klar. Prøv igjen om et øyeblikk.' }
+                {
+                    id: uuidv4(),
+                    sender: 'bot',
+                    text: 'Konteksten er ikke klar. Prøv igjen om et øyeblikk.'
+                }
             ]);
             return;
         }
 
-        const userMessage = { id: uuidv4(), sender: 'user', text: question } as const;
-        setMessages(prev => [...prev, userMessage]);
+        const newMessages: Message[] = [];
+
+        if (!prevContextLabel || prevContextLabel !== currentContextLabel) {
+            const contextMessage = `Byttet kontekst til: ${currentContextLabel}`;
+            lastContextMessageRef.current = contextMessage;
+            lastContextLabelRef.current = currentContextLabel;
+
+            try {
+                sessionStorage.setItem(CONTEXT_MESSAGE_KEY, contextMessage);
+                sessionStorage.setItem(CONTEXT_LABEL_KEY, currentContextLabel);
+            } catch {
+                // ignore
+            }
+        }
+
+        lastContextLabelRef.current = currentContextLabel;
+
+        newMessages.push({
+            id: uuidv4(),
+            sender: 'user',
+            text: question
+        });
+
+        setMessages(prev => [...prev, ...newMessages]);
         setQuestion('');
         setLoading(true);
 
         try {
             const result = await ChatbotService.askChatbot(question, context);
-            console.log('ChatbotService: context being sent:', JSON.stringify(context, null, 2));
             const fullAnswer = result.answer;
-
 
             let currentText = '';
             setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: currentText }]);
 
             let index = 0;
-
             const interval = setInterval(() => {
                 index++;
                 currentText = fullAnswer.slice(0, index);
                 setMessages(prev => {
-
                     const others = prev.slice(0, -1);
-
                     return [...others, { id: uuidv4(), sender: 'bot', text: currentText }];
                 });
 
@@ -207,15 +274,13 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                 }
             }, 15);
         } catch (error) {
-            let message = 'Error: Could not get response from chatbot';
-
-            if (error instanceof Error) {
-                message = `Error: ${error.message}`;
-            }
-
+            const message =
+                error instanceof Error
+                    ? `Error: ${error.message}`
+                    : 'Error: Could not get response from chatbot';
             setMessages(prev => [
                 ...prev,
-                { id: uuidv4(), sender: 'bot', text: message }
+                { id: uuidv4(), sender: 'bot', text: message },
             ]);
             setLoading(false);
         }
@@ -278,6 +343,9 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="ai-form">
+                    <div className="ai-context-label">
+                        {lastContextMessageRef.current}
+                    </div>
                     <textarea
                         value={question}
                         onChange={(e) => setQuestion(e.target.value)}
@@ -300,7 +368,18 @@ export default function AiAssistant({ context }: Readonly<AiAssistantProps>) {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setMessages([])}
+                        onClick={() => {
+                            setMessages([]);
+                            lastContextLabelRef.current = null;
+                            lastContextMessageRef.current = null;
+
+                            try {
+                                sessionStorage.removeItem(CONTEXT_MESSAGE_KEY);
+                                sessionStorage.removeItem(CONTEXT_LABEL_KEY);
+                            } catch {
+                                // ignore
+                            }
+                        }}
                         title="Tøm chat"
                         className={`${loading ? 'hidden' : 'fixed bottom-10 right-[15rem] ai-clear-button'}`}
                     >
