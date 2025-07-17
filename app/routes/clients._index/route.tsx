@@ -1,7 +1,7 @@
 import { Button, Dropdown, Paragraph, Search, Table } from '@digdir/designsystemet-react';
 import { Link, useLoaderData } from 'react-router';
 import { ChevronDownIcon, PlusIcon } from '@navikt/aksel-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { Client } from '~/lib/models';
@@ -13,13 +13,21 @@ import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
 import { ClientService } from '~/lib/clients';
+import { ContextBuilder } from '~/lib/context-builder';
+import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Enum representing the fields by which clients can be sorted.
+ */
 enum SortField {
     Name = 'client_name',
     Id = 'client_id',
     Created = 'created',
 }
 
+/**
+ * Enum representing the different types of integrations for clients.
+ */
 enum IntegrationType {
     ANSATTPORTEN = 'ansattporten',
     IDPORTEN = 'idporten',
@@ -28,6 +36,10 @@ enum IntegrationType {
     KRR = 'krr'
 }
 
+/**
+ * Loader function to fetch clients data.
+ * Requires the user to be authenticated.
+ */
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();
     const clientService = await ClientService.create();
@@ -37,9 +49,15 @@ export async function clientLoader() {
     return error ? error.toErrorResponse() : { clients: data };
 }
 
+/**
+ * Clients component that displays a list of clients with search and filtering capabilities.
+ *
+ * @constructor - Displays a list of clients with options to search and filter by integration type.
+ */
 export default function Clients() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
+    const [context, setContext] = useState<any>(null);
 
     const [integrationTypeDropdownOpen, setIntegrationTypeDropdownOpen] = useState(false);
     const [selectedIntegrationType, setSelectedIntegrationType] = useState<string | null>(null);
@@ -56,6 +74,19 @@ export default function Clients() {
     }
 
     const { clients } = data;
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildClientsContext(clients ?? []);
+            setContext({
+                ...builtContext,
+                page: 'clients',
+                info: 'Dette er selvbetjening klientsiden'
+            });
+        };
+        void loadContext();
+    }, [clients]);
 
     const compareClients = (a: Client, b: Client, sortField: SortField) => {
         const result = a[sortField]!.localeCompare(b[sortField]!);
@@ -119,9 +150,13 @@ export default function Clients() {
         )
     }
 
+    /**
+     * Renders the clients page with a list of clients, search functionality, and sorting options.
+     */
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
+                <AiAssistant context={context} />
                 <HeadingWrapper className={'pe-3'} level={2} heading={t('client', { count: 0 })}/>
                 <HelpText aria-label={t('clients_helptext_aria')}> {t('clients_helptext')} </HelpText>
                 <Button variant="primary" asChild className="px-6 shadow h-full ml-auto">

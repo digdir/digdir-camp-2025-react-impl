@@ -1,6 +1,6 @@
 import { Link, useLoaderData } from 'react-router';
 import { Button, Dropdown, Paragraph, Search, Table } from '@digdir/designsystemet-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDownIcon, PlusIcon } from '@navikt/aksel-icons';
 
 import { useTranslation } from '~/lib/i18n';
@@ -13,7 +13,12 @@ import HeadingWrapper from '~/components/util/HeadingWrapper';
 import PersonFishing from '~/components/art/PersonFishing';
 import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
+import { ContextBuilder } from '~/lib/context-builder';
+import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Function to load the client data for scopes.
+ */
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();
     const apiClient = await ApiClient.create();
@@ -31,15 +36,24 @@ export async function clientLoader() {
     return error ? error.toErrorResponse() : { scopes, scopePrefixes };
 }
 
+/**
+ * Enum representing the fields by which scopes can be sorted.
+ */
 enum SortField {
     Name = 'name',
     Description = 'description',
     Created = 'created',
 }
 
+/**
+ * Component for displaying and managing scopes.
+ *
+ * @returns {JSX.Element} The rendered component.
+ */
 export default function Scopes() {
     const { t } = useTranslation();
 
+    const [context, setContext] = useState<any>(null);
     const [prefixDropdownOpen, setPrefixDropdownOpen] = useState(false);
     const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null);
     const [search, setSearch] = useState('');
@@ -57,6 +71,19 @@ export default function Scopes() {
     }
 
     const { scopes, scopePrefixes } = data;
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildScopesContext(scopes ?? [], scopePrefixes ?? []);
+            setContext({
+                ...builtContext,
+                page: 'scopes',
+                info: 'Dette er selvbetjening scopesiden'
+            });
+        };
+        void loadContext();
+    }, [scopes, scopePrefixes]);
 
     const compareScopes = (a: Scope, b: Scope, sortField: SortField) => {
         const result = a[sortField]!.localeCompare(b[sortField]!);
@@ -143,9 +170,13 @@ export default function Scopes() {
         )
     }
 
+    /**
+     * Renders the scopes page with a list of scopes, search functionality, and sorting options.
+     */
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
+                <AiAssistant context={context} />
                 <HeadingWrapper className={'pe-3'} level={2} heading={t('scope', { count: 0 })}/>
                 <HelpText aria-label={t('scopes_helptext_aria')}> {t('scopes_helptext')} </HelpText>
                 {scopePrefixes!.length > 0 && <Button variant='primary' asChild className="px-6 shadow h-full ml-auto">

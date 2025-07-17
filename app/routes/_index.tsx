@@ -1,11 +1,17 @@
 import { Card, Paragraph } from '@digdir/designsystemet-react';
 import { Link, MetaFunction, redirect } from 'react-router';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { ApiClient } from '~/lib/api_client';
 import { Authorization } from '~/lib/auth';
+import { ContextBuilder } from '~/lib/context-builder';
+import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Meta function to set the page title and description for the home page.
+ */
 export const meta: MetaFunction = () => {
     return [
         { title: 'Digdir Selvbetjening' },
@@ -13,6 +19,12 @@ export const meta: MetaFunction = () => {
     ];
 };
 
+/**
+ * Loader function to fetch the prefixes for the organization number.
+ * It requires the user to be authenticated and redirects to '/clients' if no prefixes are found.
+ *
+ * @returns An empty object if successful, or an error response if there was an error fetching the prefixes.
+ */
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();
 
@@ -30,10 +42,42 @@ export async function clientLoader() {
     return {};
 }
 
+/**
+ * Home component that serves as the main page for the application.
+ *
+ * @constructor - This component fetches the necessary context for the home page,
+ */
 export default function Home() {
     const { t } = useTranslation();
+    const [context, setContext] = useState<any>(null);
+
+    useEffect(() => {
+        const loadContext = async () => {
+            const apiClient = await ApiClient.create();
+            const clientsResponse = await apiClient.getClients();
+            const scopesResponse = await apiClient.getScopes();
+            const builtContext = await ContextBuilder.buildHomeContext(
+                clientsResponse.data ?? [],
+                scopesResponse.data ?? []
+            );
+            setContext(builtContext);
+        };
+        void loadContext();
+    }, []);
+
+    if (!context) return null;
+
+    const staticContext = {
+        page: 'home',
+        info: 'Dette er selvbetjening forsiden'
+    };
+
+    /**
+     * Renders the home page with a heading, AI assistant, and links to client and scope configurations.
+     */
     return (
         <div className='py-16'>
+            <AiAssistant context={{ ...context, ...staticContext }} />
             <HeadingWrapper level={1} heading={t('home_page.heading')} className="font-medium"/>
 
             <div className='min-h-[700px] md:min-h-[650px] lg:min-h-[400px]'>

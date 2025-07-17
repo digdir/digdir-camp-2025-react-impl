@@ -1,6 +1,6 @@
 import { ClientActionFunctionArgs, ClientLoaderFunctionArgs, redirect, useLoaderData } from 'react-router';
 import { Tabs } from '@digdir/designsystemet-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { ApiClient, ApiResponse } from '~/lib/api_client';
@@ -13,80 +13,19 @@ import { isErrorResponse } from '~/lib/errors';
 import { ClientService, IntegrationType } from '~/lib/clients';
 import { Authorization } from '~/lib/auth';
 import { StatusColor, StatusMessage } from '~/lib/status';
+import AiAssistant from '~/components/ai/AiAssistant';
+import { ContextBuilder } from '~/lib/context-builder';
+
+import '~/styles/client-page.css';
 
 import Details from './details';
 import OnBehalfOf from './onBehalfOf';
 import { ActionIntent } from './actions';
 
 /**
- * Interface for the chatbot response structure.
- */
-interface ChatbotResponse {
-  answer: string;
-  source?: string;
-}
-
-/**
- * Service for interacting with the chatbot API.
- */
-class ChatbotService {
-    private static readonly BASE_URL = 'http://localhost:8000';
-
-    static async askChatbot(question: string, context?: any): Promise<ChatbotResponse> {
-        try {
-            console.log('ChatbotService: Sending request to chatbot', {
-                url: `${this.BASE_URL}/copilot/`,
-                question: question.substring(0, 100) + (question.length > 100 ? '...' : ''),
-                hasContext: !!context
-            });
-
-            const requestBody = {
-                question,
-                ...(context && { context })
-            };
-
-            const response = await fetch(`${this.BASE_URL}/copilot/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-            });
-
-            // Resten av koden forblir den samme...
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('ChatbotService: HTTP error', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    errorBody: errorText
-                });
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-            }
-
-            const data = await response.json();
-            console.log('ChatbotService: Successfully parsed response', {
-                hasAnswer: !!data.answer,
-                answerLength: data.answer?.length || 0,
-                hasSource: !!data.source
-            });
-
-            return data;
-        } catch (error) {
-            console.error('ChatbotService: Request failed', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-                url: `${this.BASE_URL}/copilot/`,
-                question: question.substring(0, 50) + '...'
-            });
-            throw error;
-        }
-    }
-}
-
-/**
- * Loads client data and related resources for the client details page. Requires authenticated user.
- * @param params - The route parameters, including the client ID.
+ * Loader function for the client page. Fetches client details, JWKs, scopes, and onBehalfOf information.
+ *
+ * @param params - The parameters from the route, including the client ID.
  */
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     await Authorization.requireAuthenticatedUser();
@@ -94,18 +33,42 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     const apiClient = await ApiClient.create();
 
     const { data: client, error } = await apiClient.getClient(clientId);
-
     if (error) {
         return error.toErrorResponse();
     }
 
-    const actualIntegrationType = client.integration_type === 'api_klient' ? 'api_client' : client.integration_type;
+    const actualIntegrationType = 'ID_PORTEN'; // liten skrift
 
     const JWK = await apiClient.getJwks(client.client_id!);
 
-    const scopesAccessibleForAll = apiClient.getAccessibleForAllScopes(actualIntegrationType!);
-    const scopesWithDelegationSource = apiClient.getScopesWithDelegationSource(actualIntegrationType!);
-    const scopesAvailableToOrganization = apiClient.getScopesAccessibleToUsersOrganization();
+    const { data: scopesAccessibleForAll, error: error1 } = await apiClient.apiClient.GET('/api/v1/scopes/all', {
+        params: {
+            query: {
+                accessible_for_all: true,
+                integration_type: actualIntegrationType
+            }
+        }
+    });
+    if (error1) {
+        console.error('Error fetching scopesAccessibleForAll:', error1);
+    }
+
+    const { data: scopesWithDelegationSource, error: error2 } = await apiClient.apiClient.GET('/api/v1/scopes/all', {
+        params: {
+            query: {
+                delegated_sources: true,
+                integration_type: actualIntegrationType
+            }
+        }
+    });
+    if (error2) {
+        console.error('Error fetching scopesWithDelegationSource:', error2);
+    }
+
+    const { data: scopesAvailableToOrganization, error: error3 } = await apiClient.getScopesAccessibleToUsersOrganization();
+    if (error3) {
+        console.error('Error fetching scopesAvailableToOrganization:', error3);
+    }
 
     const { data: onBehalfOf } = await apiClient.getAllOnBehalfOf(client.client_id!);
 
@@ -113,14 +76,17 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
         client,
         JWK: JWK.data ?? [],
         onBehalfOf,
-        scopesAccessibleForAll,
-        scopesWithDelegationSource,
-        scopesAvailableToOrganization
+        scopesAccessibleForAll: scopesAccessibleForAll ?? [],
+        scopesWithDelegationSource: scopesWithDelegationSource ?? [],
+        scopesAvailableToOrganization: scopesAvailableToOrganization ?? []
     };
 }
 
 /**
- * Handles client deletion action.
+ * Handles the deletion of a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to be deleted.
  */
 async function handleDeleteClient(clientService: ClientService, clientId: string) {
     const apiResponse = await clientService.deleteClient(clientId);
@@ -132,7 +98,11 @@ async function handleDeleteClient(clientService: ClientService, clientId: string
 }
 
 /**
- * Handles client update action.
+ * Handles the update of a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to be updated.
+ * @param formData - The form data containing the updated client information.
  */
 async function handleUpdateClient(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.updateClient(clientId, formData);
@@ -141,7 +111,11 @@ async function handleUpdateClient(clientService: ClientService, clientId: string
 }
 
 /**
- * Handles add key action.
+ * Handles the addition of a JWK (JSON Web Key) to a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to which the JWK will be added.
+ * @param formData - The form data containing the JWK to be added.
  */
 async function handleAddKey(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.addKey(clientId, formData.get('jwk') as string);
@@ -150,7 +124,11 @@ async function handleAddKey(clientService: ClientService, clientId: string, form
 }
 
 /**
- * Handles add scope action.
+ * Handles the addition of a scope to a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client to which the scope will be added.
+ * @param formData - The form data containing the scopes to be added.
  */
 async function handleAddScope(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.addScope(clientId, formData.getAll('scopes') as string[]);
@@ -159,7 +137,12 @@ async function handleAddScope(clientService: ClientService, clientId: string, fo
 }
 
 /**
- * Handles OnBehalfOf actions (add, edit, delete).
+ * Handles actions related to "On Behalf Of" functionality for a client.
+ *
+ * @param clientService - The service to manage client operations.
+ * @param clientId - The ID of the client for which the action is performed.
+ * @param formData - The form data containing the details for the "On Behalf Of" action.
+ * @param intent - The intent of the action, which can be to add, edit, or delete an "On Behalf Of" entry.
  */
 async function handleOnBehalfOfActions(clientService: ClientService, clientId: string, formData: FormData, intent: string) {
     let apiResponse: ApiResponse<any>;
@@ -189,7 +172,10 @@ async function handleOnBehalfOfActions(clientService: ClientService, clientId: s
 }
 
 /**
- * Handles client actions such as updating, deleting, or adding keys and scopes.
+ * Handles client actions based on the intent specified in the request.
+ *
+ * @param request - The request object containing the form data and action intent.
+ * @param params - The parameters from the route, including the client ID.
  */
 export async function clientAction({ request, params }: ClientActionFunctionArgs) {
     const clientId = params.id!;
@@ -249,171 +235,107 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
 }
 
 /**
- * ClientPage component displays the details of a client, including its keys, scopes, and on-behalf-of configurations.
+ * ClientPage component. This component displays the details of a client, including its keys, scopes, and "On Behalf Of" information.
+ *
+ * @constructor - The constructor initializes the component state and handles the loading of client data.
  */
 export default function ClientPage() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
+    const [context, setContext] = useState<any>(null);
 
-    const [aiPanelOpen, setAiPanelOpen] = useState(false);
-    const [question, setQuestion] = useState('');
-    const [response, setResponse] = useState<string>('');
-    const [loading, setLoading] = useState(false);
+    const isError = isErrorResponse(data);
 
-    if (isErrorResponse(data)) {
-        return <AlertWrapper message={data.error} type="error"/>;
+    useEffect(() => {
+        if (isError) return;
+
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildClientContext(
+                data.client,
+                data.JWK ?? [],
+                data.onBehalfOf ?? [],
+                data.scopesAccessibleForAll ?? [],
+                data.scopesWithDelegationSource ?? [],
+                data.scopesAvailableToOrganization ?? []
+            );
+            console.log('Context JSON:\n', JSON.stringify(builtContext, null, 2));
+            setContext(builtContext);
+        };
+        void loadContext();
+    }, [data, isError]);
+
+    if (isError) {
+        return <AlertWrapper message={data.error} type="error" />;
     }
 
-    const { client, JWK, onBehalfOf, scopesAccessibleForAll, scopesWithDelegationSource, scopesAvailableToOrganization } = data;
+    const {
+        client,
+        JWK,
+        onBehalfOf,
+        scopesAccessibleForAll,
+        scopesWithDelegationSource,
+        scopesAvailableToOrganization
+    } = data;
 
-    const openAiPanel = () => {
-        setAiPanelOpen(true);
-    };
-
-    const closeAiPanel = () => {
-        setAiPanelOpen(false);
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!question.trim()) return;
-
-        setLoading(true);
-        try {
-            console.log('ClientPage: Starting chatbot request', { question: question.substring(0, 50) + '...' });
-
-            // Await dataene før du bruker dem
-            const [
-                scopesAccessibleForAllData,
-                scopesWithDelegationSourceData,
-                scopesAvailableToOrganizationData
-            ] = await Promise.all([
-                scopesAccessibleForAll,
-                scopesWithDelegationSource,
-                scopesAvailableToOrganization
-            ]);
-
-            const context = {
-                client: {
-                    client_id: client.client_id,
-                    client_name: client.client_name,
-                    integration_type: client.integration_type,
-                    scopes: client.scopes
-                },
-                jwkCount: JWK?.length || 0,
-                onBehalfOfCount: onBehalfOf?.length || 0,
-                availableScopes: {
-                    accessibleForAll: scopesAccessibleForAllData.data?.length || 0,
-                    withDelegationSource: scopesWithDelegationSourceData.data?.length || 0,
-                    availableToOrganization: scopesAvailableToOrganizationData.data?.length || 0
-                }
-            };
-
-            const result = await ChatbotService.askChatbot(question, context);
-            console.log('ClientPage: Chatbot request successful');
-            setResponse(result.answer);
-        } catch (error) {
-            console.error('ClientPage: Chatbot request failed', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined
-            });
-            setResponse('Error: Could not get response from chatbot');
-        } finally {
-            setLoading(false);
-        }
+    const staticContext = {
+        page: 'client-details',
+        info: 'Dette er selvbetjening forsiden'
     };
 
     /**
-     * Render the client details page with a fixed AI button and side panel for chatbot interaction.
+     * Renders the client page with tabs for details, keys, scopes, and "On Behalf Of" information.
      */
     return (
         <div className="relative">
-            {/* Fixed AI-buttom with secondary + blue hover */}
-            <button
-                onClick={openAiPanel}
-                type="button"
-                className="fixed bottom-6 right-6 z-10 w-40 h-28 rounded-full ds-button items-center justify-center text-2xl transition-colors duration-200"
-                title="Åpne AI-hjelp"
-            >
-                🤖 DesKI
-            </button>
-
-            {/* AI Panel - style for sidepanel */}
-            {aiPanelOpen && (
-                <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-lg z-50 p-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold">DesKI Assistant</h3>
-                        <button onClick={closeAiPanel} className="text-gray-500 hover:text-gray-700">
-                            ✕
-                        </button>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="mb-4">
-                        <textarea
-                            value={question}
-                            onChange={(e) => setQuestion(e.target.value)}
-                            placeholder="Ask your question..."
-                            className="w-full p-2 border rounded"
-                            rows={3}
-                            disabled={loading}
-                        />
-                        <button
-                            type="submit"
-                            disabled={loading || !question.trim()}
-                            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
-                        >
-                            {loading ? 'Asking...' : 'Ask'}
-                        </button>
-                    </form>
-
-                    {response && (
-                        <div className="p-3 bg-gray-100 rounded">
-                            <p>{response}</p>
-                        </div>
-                    )}
-                </div>
-            )}
+            <AiAssistant context={{ ...context, ...staticContext }} />
 
             <Tabs defaultValue="details">
-                <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
-                    <div className='col-span-12'>
-                        <HeadingWrapper level={2} translate={false} heading={client.client_name ?? ''} className="py-4 bg-gray truncate block overflow-ellipsis"/>
+                <Tabs.List className="tabs-list">
+                    <div className="tabs-heading">
+                        <HeadingWrapper
+                            level={2}
+                            translate={false}
+                            heading={client.client_name ?? ''}
+                            className="tabs-heading-wrapper"
+                        />
                     </div>
-                    <div className='col-span-12 flex'>
-                        <Tabs.Tab value="details" className="py-4 px-8 border-solid border-b">
+                    <div className="tabs-container">
+                        <Tabs.Tab value="details" className="tab-item">
                             {t('client_page.details')}
                         </Tabs.Tab>
-                        <Tabs.Tab value="keys" className="py-4 px-8 border-solid border-b">
-                            {t('key', { count: 0 })}
+                        <Tabs.Tab value="keys" className="tab-item">
+                            {t('key', { count: JWK.length })}
                         </Tabs.Tab>
-                        <Tabs.Tab value="scopes" className="py-4 px-8 border-solid border-b">
+                        <Tabs.Tab value="scopes" className="tab-item">
                             {t('scope', { count: 0 })}
                         </Tabs.Tab>
-                        {(client.integration_type === IntegrationType.IDPORTEN || client.integration_type === IntegrationType.API_KLIENT || client.integration_type === IntegrationType.KRR) && (
-                            <Tabs.Tab value="onBehalfOf" className="py-4 px-8 border-solid border-b">
+                        {(client.integration_type === IntegrationType.IDPORTEN ||
+                            client.integration_type === IntegrationType.API_KLIENT ||
+                            client.integration_type === IntegrationType.KRR) && (
+                            <Tabs.Tab value="onBehalfOf" className="tab-item">
                                 OnBehalfOf
                             </Tabs.Tab>
                         )}
                     </div>
                 </Tabs.List>
 
-                <Tabs.Panel value="details" className="p-0">
-                    <Details client={client}/>
+                <Tabs.Panel value="details" className="tabs-panel">
+                    <Details client={client} />
                 </Tabs.Panel>
-                <Tabs.Panel value="keys" className="p-0">
-                    <Keys jwks={JWK ?? []}/>
+                <Tabs.Panel value="keys" className="tabs-panel">
+                    <Keys jwks={JWK ?? []} />
                 </Tabs.Panel>
-                <Tabs.Panel value="scopes" className="p-0">
+                <Tabs.Panel value="scopes" className="tabs-panel">
                     <Scopes
                         scopes={client.scopes ?? []}
-                        scopesAccessibleForAll={scopesAccessibleForAll}
-                        scopesWithDelegationSource={scopesWithDelegationSource}
-                        scopesAvailableToOrganization={scopesAvailableToOrganization}
+                        scopesAccessibleForAll={scopesAccessibleForAll as any}
+                        scopesWithDelegationSource={scopesWithDelegationSource as any}
+                        scopesAvailableToOrganization={scopesAvailableToOrganization as any}
                         clientIntegrationType={client.integration_type}
                     />
                 </Tabs.Panel>
-                <Tabs.Panel value="onBehalfOf" className="p-0">
-                    <OnBehalfOf onBehalfOfs={onBehalfOf!}/>
+                <Tabs.Panel value="onBehalfOf" className="tabs-panel">
+                    <OnBehalfOf onBehalfOfs={onBehalfOf!} />
                 </Tabs.Panel>
             </Tabs>
         </div>
