@@ -16,12 +16,18 @@ import { ClientService } from '~/lib/clients';
 import { ContextBuilder } from '~/lib/context-builder';
 import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Enum representing the fields by which clients can be sorted.
+ */
 enum SortField {
     Name = 'client_name',
     Id = 'client_id',
     Created = 'created',
 }
 
+/**
+ * Enum representing the different types of integrations for clients.
+ */
 enum IntegrationType {
     ANSATTPORTEN = 'ansattporten',
     IDPORTEN = 'idporten',
@@ -30,6 +36,10 @@ enum IntegrationType {
     KRR = 'krr'
 }
 
+/**
+ * Loader function to fetch clients data.
+ * Requires the user to be authenticated.
+ */
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();
     const clientService = await ClientService.create();
@@ -39,6 +49,11 @@ export async function clientLoader() {
     return error ? error.toErrorResponse() : { clients: data };
 }
 
+/**
+ * Clients component that displays a list of clients with search and filtering capabilities.
+ *
+ * @constructor - Displays a list of clients with options to search and filter by integration type.
+ */
 export default function Clients() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
@@ -135,6 +150,9 @@ export default function Clients() {
         )
     }
 
+    /**
+     * Renders the clients page with a list of clients, search functionality, and sorting options.
+     */
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
