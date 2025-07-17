@@ -16,6 +16,9 @@ import { Authorization } from '~/lib/auth';
 import { ContextBuilder } from '~/lib/context-builder';
 import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Function to load the client data for scopes.
+ */
 export async function clientLoader() {
     await Authorization.requireAuthenticatedUser();
     const apiClient = await ApiClient.create();
@@ -33,12 +36,20 @@ export async function clientLoader() {
     return error ? error.toErrorResponse() : { scopes, scopePrefixes };
 }
 
+/**
+ * Enum representing the fields by which scopes can be sorted.
+ */
 enum SortField {
     Name = 'name',
     Description = 'description',
     Created = 'created',
 }
 
+/**
+ * Component for displaying and managing scopes.
+ *
+ * @returns {JSX.Element} The rendered component.
+ */
 export default function Scopes() {
     const { t } = useTranslation();
 
@@ -159,6 +170,9 @@ export default function Scopes() {
         )
     }
 
+    /**
+     * Renders the scopes page with a list of scopes, search functionality, and sorting options.
+     */
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
