@@ -16,6 +16,9 @@ import { StatusColor, StatusMessage } from '~/lib/status';
 import { ContextBuilder } from '~/lib/context-builder';
 import AiAssistant from '~/components/ai/AiAssistant';
 
+/**
+ * Enum representing the different actions that can be performed on a scope.
+ */
 export enum ActionIntent {
     UpdateScope = 'updateScope',
     DeleteScope = 'deleteScope',
@@ -23,6 +26,11 @@ export enum ActionIntent {
     DeleteScopeAccess = 'deleteScopeAccess'
 }
 
+/**
+ * Function to load the client data for a specific scope.
+ *
+ * @param params - The parameters from the route, including the scope name.
+ */
 export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     await Authorization.requireAuthenticatedUser();
     const apiClient = await ApiClient.create();
@@ -41,6 +49,12 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     return error ? error.toErrorResponse() : { scope, scopesWithAccess, delegationSources };
 }
 
+/**
+ * Function to handle client actions related to a scope.
+ *
+ * @param request - The request object containing the form data for the action.
+ * @param params - The parameters from the route, including the scope name.
+ */
 export async function clientAction({ request, params }: ClientActionFunctionArgs) {
     const scopeName = params.name!
     const formData = await request.formData();
@@ -93,6 +107,11 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
     return null;
 }
 
+/**
+ * Component representing the scope details page.
+ *
+ * @constructor - This component fetches and displays the details of a specific scope,
+ */
 export default function ScopePage() {
     const { t } = useTranslation();
 
@@ -126,7 +145,10 @@ export default function ScopePage() {
         page: 'scope-details',
         info: 'Dette er selvbetjening scopesiden'
     };
-    
+
+    /**
+     * Renders the scope details page with tabs for accesses and details.
+     */
     return (
         <div>
             <AiAssistant context={{ ...context, ...staticContext }} />
