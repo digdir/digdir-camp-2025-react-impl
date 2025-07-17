@@ -282,6 +282,9 @@ export default function ClientPage() {
         info: 'Dette er selvbetjening forsiden'
     };
 
+    /**
+     * Renders the client page with tabs for details, keys, scopes, and "On Behalf Of" information.
+     */
     return (
         <div className="relative">
             <AiAssistant context={{ ...context, ...staticContext }} />
