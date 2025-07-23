@@ -267,3 +267,35 @@
   box-shadow: none;
   border: none;
 }
+
+.ai-tab-highlight {
+  outline: 3px solid #0071c1 !important;
+  outline-offset: 3px;
+  border-radius: 4px;
+  animation: pulse-tab 1s ease-in-out 2;
+}
+
+@keyframes pulse-tab {
+  0% { outline-color: #0071c1; }
+  50% { outline-color: #0e84c8; }
+  100% { outline-color: #0071c1; }
+}
+
+.jwk-expired-highlight {
+  outline: 3px solid red !important;
+  outline-offset: 4px;
+  border-radius: 6px;
+  animation: pulse-highlight 1.5s ease-in-out 2;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    outline-color: red;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+  }
+  50% {
+    outline-color: darkred;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+  }
+}

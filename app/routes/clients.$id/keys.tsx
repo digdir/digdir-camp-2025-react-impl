@@ -6,6 +6,8 @@ import { useFetcher } from 'react-router'
 import { parseWithZod } from '@conform-to/zod';
 import { useForm } from '@conform-to/react';
 
+import { ContextBuilder } from '~/lib/context-builder';
+import AiAssistant from '~/components/ai/AiAssistant';
 import { useTranslation } from '~/lib/i18n';
 import { dateFromEpochSeconds, formatDateTimeCompact, isExpired, isExpiredAfterOneMonth } from '~/lib/utils';
 import { JWK } from '~/lib/models';
@@ -122,8 +124,21 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
     const { t } = useTranslation();
     const [kidToDelete, setKidToDelete] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [context, setContext] = useState<any>(null);
 
     const fetcher = useFetcher();
+
+    useEffect(() => {
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildKeysContext(jwks);
+            setContext({
+                ...builtContext,
+                page: 'client-keys',
+                info: 'Dette er klient nøkler siden'
+            });
+        };
+        void loadContext();
+    }, [jwks]);
 
     const deleteKey = async () => {
         try {
@@ -140,6 +155,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
 
     return (
         <div className="items-center">
+            <AiAssistant context={context} />
             <div className="pt-6 flex items-center">
                 <div className="flex items-baseline gap-2">
                     <HeadingWrapper level={3} heading={t('client_page.keys_on_client', { count: 0 })} className=""/>
@@ -182,6 +198,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
                     {jwks.map((jwk) => (
                         <Card
                             key={jwk.kid}
+                            data-key-id={jwk.kid}
                             data-color="accent"
                             className={'rounded-lg shadow mt-4 border-none flex flex-col items-center bg-white ml-auto p-6'}>
                             <div className="grid grid-cols-12 w-full">

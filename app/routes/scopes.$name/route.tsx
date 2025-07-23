@@ -1,7 +1,14 @@
-import { ClientActionFunctionArgs, ClientLoaderFunctionArgs, redirect, useActionData, useLoaderData } from 'react-router';
+import {
+    ClientActionFunctionArgs,
+    ClientLoaderFunctionArgs,
+    Outlet,
+    redirect,
+    useActionData,
+    useLoaderData
+} from 'react-router';
 import { Paragraph, Tabs } from '@digdir/designsystemet-react';
 import { ExclamationmarkTriangleIcon } from '@navikt/aksel-icons';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import { ApiClient, ApiResponse } from '~/lib/api_client';
@@ -14,7 +21,7 @@ import { isErrorResponse } from '~/lib/errors';
 import { Authorization } from '~/lib/auth';
 import { StatusColor, StatusMessage } from '~/lib/status';
 import { ContextBuilder } from '~/lib/context-builder';
-import AiAssistant from '~/components/ai/AiAssistant';
+import AiAssistant, { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 /**
  * Enum representing the different actions that can be performed on a scope.
@@ -112,12 +119,11 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
  *
  * @constructor - This component fetches and displays the details of a specific scope,
  */
-export default function ScopePage() {
+export default function ScopeDetails() {
     const { t } = useTranslation();
-
     const actionData = useActionData<typeof clientAction>();
     const data = useLoaderData<typeof clientLoader>();
-    const [context, setContext] = useState<any>(null);
+    const { setContext } = useAiAssistantContext();
 
     if (isErrorResponse(data)) {
         return <AlertWrapper message={data.error} type="error"/>;
@@ -136,22 +142,22 @@ export default function ScopePage() {
                 delegationSources
             );
             console.log('Scope context:\n', JSON.stringify(builtContext, null, 2));
-            setContext(builtContext);
+            const staticContext = {
+                page: 'scope-details',
+                info: 'Dette er selvbetjening scopesiden'
+            };
+            setContext({ ...builtContext, ...staticContext });
         };
         void loadContext();
-    }, [scope, scopesWithAccess, delegationSources]);
-
-    const staticContext = {
-        page: 'scope-details',
-        info: 'Dette er selvbetjening scopesiden'
-    };
+    }, [scope, scopesWithAccess, delegationSources, setContext]);
 
     /**
      * Renders the scope details page with tabs for accesses and details.
      */
     return (
         <div>
-            <AiAssistant context={{ ...context, ...staticContext }} />
+            <AiAssistant />
+            <Outlet />
             <Tabs defaultValue="accesses">
                 <Tabs.List className="top-0 z-10 bg-gray grid grid-cols-12 border-none">
                     <div className='col-span-12'>

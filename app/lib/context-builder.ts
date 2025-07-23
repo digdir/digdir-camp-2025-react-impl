@@ -107,4 +107,22 @@ export class ContextBuilder {
             }))
         };
     }
+
+    /**
+     * Builds a keys context with the provided JWKs.
+     *
+     * @param jwks - An array of JWK (JSON Web Key) objects.
+     */
+    static async buildKeysContext(jwks: any[]): Promise<any> {
+        return {
+            keys: jwks.map(jwk => ({
+                kid: jwk.kid,
+                alg: jwk.alg,
+                kty: jwk.kty,
+                created: jwk.created,
+                exp: jwk.exp,
+                x5c: jwk.x5c
+            }))
+        };
+    }
 }

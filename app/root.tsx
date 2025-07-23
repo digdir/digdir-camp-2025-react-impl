@@ -4,6 +4,7 @@ import '@digdir/designsystemet-css';
 import './styles/designsystemet.css';
 import './styles/layers.css';
 import { Paragraph } from '@digdir/designsystemet-react';
+import {useMemo} from 'react';
 
 import Notification from '~/components/util/Notification';
 import { StatusMessage } from '~/lib/status';
@@ -12,12 +13,14 @@ import { Authorization } from '~/lib/auth';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
 import PeopleWithBuildingBlocks from '~/components/art/PeopleWithBuildingBlocks';
 import { AuthenticatedOrganization } from '~/lib/models';
+import { AiAssistantProvider } from '~/components/ai/AiAssistant';
 
 import Footer from './components/Footer';
 import { getSetting, Setting, UserSettingsContext } from './lib/settings';
 import { fetchTranslations } from './lib/i18n';
 import { ConfigContext, fetchAppConfig } from './lib/config';
 import { Route } from './+types/root';
+
 
 export const links: LinksFunction = () => [
     { rel: 'stylesheet', href: 'https://altinncdn.no/fonts/inter/inter.css' },
@@ -74,21 +77,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
     const { language, colorMode, appConfig, status, userInfo } = useLoaderData<typeof clientLoader>();
 
+    const memoizedAppConfig = useMemo(() => appConfig, [appConfig]);
+
     return (
-        <ConfigContext.Provider value={appConfig}>
+        <ConfigContext.Provider value={memoizedAppConfig}>
             <UserSettingsContext.Provider value={{ language, colorMode }}>
-                <div className="flex flex-col min-h-screen m-0 bg-gray">
-                    <Navbar organization={userInfo as AuthenticatedOrganization}/>
-                    <Notification status={status}/>
-                    <div data-size="sm" className="container mx-auto flex-1">
-                        <div className='px-3 lg:px-20'>
-                            <div className='py-10'>
-                                <Outlet/>
+                <AiAssistantProvider>
+                    <div className="flex flex-col min-h-screen m-0 bg-gray">
+                        <Navbar organization={userInfo as AuthenticatedOrganization}/>
+                        <Notification status={status}/>
+                        <div data-size="sm" className="container mx-auto flex-1">
+                            <div className='px-3 lg:px-20'>
+                                <div className='py-10'>
+                                    <Outlet/>
+                                </div>
                             </div>
                         </div>
+                        <Footer/>
                     </div>
-                    <Footer/>
-                </div>
+                </AiAssistantProvider>
             </UserSettingsContext.Provider>
         </ConfigContext.Provider>
     );
