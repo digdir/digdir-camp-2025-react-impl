@@ -37,7 +37,7 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
         return error.toErrorResponse();
     }
 
-    const actualIntegrationType = 'ID_PORTEN'; // liten skrift
+    const actualIntegrationType = 'ID_PORTEN';
 
     const JWK = await apiClient.getJwks(client.client_id!);
 
@@ -239,7 +239,6 @@ export async function clientAction({ request, params }: ClientActionFunctionArgs
  *
  * @constructor - The constructor initializes the component state and handles the loading of client data.
  */
-
 export default function ClientPage() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();

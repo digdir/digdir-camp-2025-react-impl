@@ -1,4 +1,3 @@
-/* AI Button Styles */
 .ai-button {
   @apply fixed bottom-6 right-20 z-10
   w-24 h-24
@@ -25,7 +24,6 @@
   transform: scale(0.95);
 }
 
-/* AI Panel Styles */
 .ai-panel {
   @apply fixed top-20 bottom-4 bg-white shadow-2xl z-50;
   pointer-events: none;
@@ -48,7 +46,6 @@
   pointer-events: auto;
 }
 
-/* AI Suggestions Dropdown */
 .ai-suggestions-dropdown {
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
@@ -234,7 +231,6 @@
   margin-bottom: 3rem;
 }
 
-/* Tab Styles */
 .tabs-list {
   @apply top-0 z-10 bg-gray-50 grid grid-cols-12 border-none;
 }
@@ -270,13 +266,13 @@
 }
 
 .chat-message.bot {
-  background-color: #f9fafb; /* lysere grå */
+  background-color: #f9fafb;
   color: #374151;
   align-self: flex-start;
 }
 
 .chat-message.user {
-  background-color: #3b82f6; /* blå */
+  background-color: #3b82f6;
   color: white;
   align-self: flex-end;
   margin-right: 1rem;
@@ -323,12 +319,12 @@
 }
 
 .ai-response::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1; /* lys grå */
+  background-color: #cbd5e1;
   border-radius: 4px;
 }
 
 .ai-response::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* mørkere grå ved hover */
+  background-color: #94a3b8;
 }
 
 .ai-response::-webkit-scrollbar-track {

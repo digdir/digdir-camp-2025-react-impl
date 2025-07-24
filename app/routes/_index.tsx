@@ -60,8 +60,7 @@ export default function Home() {
                 clientsResponse.data ?? [],
                 scopesResponse.data ?? []
             );
-            
-            // Oppdater global context i stedet for lokal state
+
             setContext({
                 ...builtContext,
                 page: 'home',

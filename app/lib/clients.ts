@@ -8,7 +8,9 @@ import { UriTypes } from '~/components/context/UriContext';
 import { AddClientRequest, Client, ClientOnBehalfOf, UpdateClientRequest } from './models';
 import { isChecked } from './utils';
 
-// The allowed integration types for new clients and scopes.
+/**
+ * Enum representing the different integration types for clients.
+ */
 export enum IntegrationType {
     ANSATTPORTEN = 'ansattporten',
     IDPORTEN = 'idporten',
@@ -18,12 +20,18 @@ export enum IntegrationType {
     IDPORTEN_SAML2 = 'idporten_saml2',
 };
 
+/**
+ * Enum representing the different application types for clients.
+ */
 export enum ApplicationType {
     WEB = 'web',
     NATIVE = 'native',
     BROWSER = 'browser',
 };
 
+/**
+ * Enum representing the different token authentication methods for clients.
+ */
 export enum TokenAuthenticationMethod {
     NONE = 'none',
     PRIVATE_KEY_JWT = 'private_key_jwt',
@@ -31,27 +39,49 @@ export enum TokenAuthenticationMethod {
     CLIENT_SECRET_BASIC = 'client_secret_basic',
 }
 
+/**
+ * Service class for managing client operations.
+ */
 export class ClientService {
     constructor(private readonly apiClient: ApiClient) {}
 
+    /**
+     * Creates an instance of ClientService with an ApiClient.
+     *
+     * @returns {Promise<ClientService>} A promise that resolves to a new instance of ClientService.
+     */
     static async create() {
         const apiClient = await ApiClient.create();
         return new ClientService(apiClient);
     }
 
+    /**
+     * Fetches a client by its ID.
+     *
+     * @param clientId - The ID of the client to fetch.
+     */
     getClient(clientId: string) {
         return this.apiClient.getClient(clientId);
     }
 
+    /**
+     * Fetches all clients.
+     *
+     * @returns {Promise<Client[]>} A promise that resolves to an array of clients.
+     */
     getClients() {
         return this.apiClient.getClients();
     }
 
+    /**
+     * Fetches all scopes.
+     *
+     * @returns {Promise<any>} A promise that resolves to an array of scopes.
+     */
     addClient(formData: FormData) {
         const integrationType = formData.get('integration_type') as IntegrationType;
         const { payload } = parseWithZod(formData, { schema: getSchema(integrationType) });
 
-        // Check if scope is a string and split it, otherwise default to an empty array
         const scopeValue = typeof payload.scope === 'string' ? payload.scope : '';
         const scopes = scopeValue.trim() ? scopeValue.split(',').map(s => s.trim()) : [];
 
@@ -63,6 +93,13 @@ export class ClientService {
         return this.apiClient.addClient(newClient);
     }
 
+    /**
+     * Updates an existing client.
+     *
+     * @param clientId - The ID of the client to update.
+     * @param formData - The form data containing the updated client information.
+     * @returns {Promise<UpdateClientRequest>} A promise that resolves to the updated client request.
+     */
     async updateClient(clientId: string, formData: FormData) {
         const integrationType = formData.get('integration_type') as IntegrationType;
         const { payload } = parseWithZod(formData, { schema: getSchema(integrationType) });
@@ -76,18 +113,43 @@ export class ClientService {
         return this.apiClient.updateClient(updatedClient);
     }
 
+    /**
+     * Deletes a client by its ID.
+     *
+     * @param clientId - The ID of the client to delete.
+     * @returns {Promise<void>} A promise that resolves when the client is deleted.
+     */
     deleteClient(clientId: string) {
         return this.apiClient.deleteClient(clientId);
     }
 
+    /**
+     * Adds a JWK (JSON Web Key) to a client.
+     *
+     * @param clientId - The ID of the client to which the JWK will be added.
+     * @param jwk - The JSON Web Key to add.
+     * @returns {Promise<void>} A promise that resolves when the JWK is added.
+     */
     addKey(clientId: string, jwk: string) {
         return this.apiClient.addJwk(clientId, jwk);
     }
 
+    /**
+     * Fetches all JWKs (JSON Web Keys) for a client.
+     *
+     * @param clientId - The ID of the client whose JWKs will be fetched.
+     * @returns {Promise<any>} A promise that resolves to an array of JWKs.
+     */
     deleteJwk(clientId: string, kid: string) {
         return this.apiClient.deleteJwk(clientId, kid);
     }
 
+    /**
+     * Fetches all JWKs (JSON Web Keys) for a client.
+     *
+     * @param clientId - The ID of the client whose JWKs will be fetched.
+     * @returns {Promise<any>} A promise that resolves to an array of JWKs.
+     */
     async addScope(clientId: string, scopes: string[]) {
         const { data, error } = await this.apiClient.getClient(clientId)
 
@@ -100,6 +162,13 @@ export class ClientService {
         return this.apiClient.updateScopesOnClient(data)
     }
 
+    /**
+     * Removes a scope from a client.
+     *
+     * @param clientId - The ID of the client from which the scope will be removed.
+     * @param scopeToRemove - The scope to remove.
+     * @returns {Promise<any>} A promise that resolves when the scope is removed.
+     */
     async removeScope(clientId: string, scopeToRemove: string) {
         const { data, error } = await this.apiClient.getClient(clientId)
 
@@ -112,23 +181,49 @@ export class ClientService {
         return this.apiClient.updateScopesOnClient(data)
     }
 
+    /**
+     * Fetches all scopes for a client.
+     *
+     * @param clientId - The ID of the client whose scopes will be fetched.
+     * @returns {Promise<any>} A promise that resolves to an array of scopes.
+     */
     addOnBehalfOf(clientId: string, onBehalfOf: ClientOnBehalfOf) {
         return this.apiClient.addOnBehalfOf(clientId, onBehalfOf);
     }
 
+    /**
+     * Edits an existing "on behalf of" entity for a client.
+     *
+     * @param clientId - The ID of the client for which the "on behalf of" entity will be edited.
+     * @param onBehalfOf - The updated "on behalf of" entity.
+     */
     editOnBehalfOf(clientId: string, onBehalfOf: ClientOnBehalfOf) {
         return this.apiClient.editOnBehalfOf(clientId, onBehalfOf);
     }
 
+    /**
+     * Fetches all "on behalf of" entities for a client.
+     *
+     * @param clientId - The ID of the client whose "on behalf of" entities will be fetched.
+     * @returns {Promise<ClientOnBehalfOf[]>} A promise that resolves to an array of "on behalf of" entities.
+     */
     removeOnBehalfOf(clientId: string, onBehalfOfId: string) {
         return this.apiClient.deleteOnBehalfOf(clientId, onBehalfOfId);
     }
 
+    /**
+     * Generates a new client secret for a given client ID.
+     *
+     * @param clientId - The ID of the client for which to generate a new secret.
+     */
     generateClientSecret(clientId: string) {
         return this.apiClient.generateClientSecret(clientId);
     }
 }
 
+/**
+ * Enum representing the different application types for clients.
+ */
 const baseSchema = z.object({
     client_name: z.string(({ message: 'validation.title_required' })),
     description: z.string(({ message: 'validation.client_description_required' })),
@@ -137,8 +232,14 @@ const baseSchema = z.object({
     scope: z.array(z.string()).optional()
 });
 
+/**
+ * Schema for Idporten clients, extending the base schema with additional fields specific to Idporten.
+ */
 const idportenGrantTypes = z.enum(['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'implicit']);
 
+/**
+ * Schema for Idporten clients, extending the base schema with additional fields specific to Idporten.
+ */
 export const idportenSchema = baseSchema.extend({
     application_type: z.enum([ApplicationType.WEB, ApplicationType.NATIVE, ApplicationType.BROWSER]),
     token_endpoint_auth_method: z.enum([
@@ -146,8 +247,8 @@ export const idportenSchema = baseSchema.extend({
         TokenAuthenticationMethod.PRIVATE_KEY_JWT,
         TokenAuthenticationMethod.CLIENT_SECRET_POST,
         TokenAuthenticationMethod.CLIENT_SECRET_BASIC]),
-    grant_types: z.union([z.array(idportenGrantTypes), idportenGrantTypes]), // it's a single string/value if only one selected, array if multiple
-    client_redirect: z.string().optional(), //This is not used for submission, only for displaying the field's error if redirect_uris is empty
+    grant_types: z.union([z.array(idportenGrantTypes), idportenGrantTypes]),
+    client_redirect: z.string().optional(),
     frontchannel_logout_uri: z.string().optional(),
     code_challenge_method: z.enum(['S256', 'none']),
     frontchannel_logout_session_required: z.boolean().optional(),
@@ -174,6 +275,9 @@ export const idportenSchema = baseSchema.extend({
         .min(1, { message: 'validation.must_be_greater_than_zero' }),
 })
 
+/**
+ * Schema for Maskinporten clients, extending the base schema with additional fields specific to Maskinporten.
+ */
 const maskinportenSchema = baseSchema.extend({
     application_type: z.enum(['web']),
     token_endpoint_auth_method: z.enum(['private_key_jwt']),
@@ -186,6 +290,9 @@ const maskinportenSchema = baseSchema.extend({
         .min(1, { message: 'validation.must_be_greater_than_zero' }),
 });
 
+/**
+ * Schema for the "on behalf of" form, used to validate the input for adding or editing an "on behalf of" entity.
+ */
 export const onBehalfOfSchema = z.object({
     onbehalfof: z.string(({ message: 'validation.onbehalfof_required' })),
     name: z.string(({ message: 'validation.customer_name_required' })),
@@ -193,6 +300,12 @@ export const onBehalfOfSchema = z.object({
     description: z.string(({ message: 'validation.description_required' })),
 });
 
+/**
+ * Dynamic schema generator for redirect and post logout URIs.
+ *
+ * @param redirectUris - An array of redirect URIs, each with an `id` and `uri`.
+ * @param postLogoutUris - An array of post logout URIs, each with an `id` and `uri`.
+ */
 const dynamicSchema = (redirectUris: UriTypes['redirectUris'], postLogoutUris: UriTypes['postLogoutUris']) => {
     return z.object({
         ...Object.fromEntries(
@@ -210,6 +323,13 @@ const dynamicSchema = (redirectUris: UriTypes['redirectUris'], postLogoutUris: U
     })
 }
 
+/**
+ * Combines the base schema with the dynamic schema for redirect and post logout URIs,
+ *
+ * @param redirectUris - An array of redirect URIs, each with an `id` and `uri`.
+ * @param postLogoutUris - An array of post logout URIs, each with an `id` and `uri`.
+ * @param applicationType - The application type, which can be WEB, NATIVE, or BROWSER.
+ */
 export const combinedSchema = (redirectUris: UriTypes['redirectUris'], postLogoutUris: UriTypes['postLogoutUris'], applicationType: ApplicationType) => {
     return idportenSchema.merge(dynamicSchema(redirectUris, postLogoutUris)).superRefine((value, ctx) => {
         if (redirectUris.length === 0) {
@@ -268,10 +388,27 @@ export const combinedSchema = (redirectUris: UriTypes['redirectUris'], postLogou
     })
 }
 
+/**
+ * Base schema for clients, used when no specific integration type is selected.
+ */
 export type BaseSchema = z.infer<typeof baseSchema>;
+
+/**
+ * Schema for Idporten clients, used when the integration type is Idporten.
+ */
 export type IdportenSchema = z.infer<typeof idportenSchema>;
+
+/**
+ * Schema for Maskinporten clients, used when the integration type is Maskinporten or KRR.
+ */
 export type MaskinportenSchema = z.infer<typeof maskinportenSchema>;
 
+
+/**
+ * Function to get the appropriate schema based on the selected service.
+ *
+ * @param selectedService - The selected integration type for the client.
+ */
 export const getSchema = (selectedService: string) => {
     switch (selectedService) {
     case IntegrationType.ANSATTPORTEN:
@@ -286,7 +423,12 @@ export const getSchema = (selectedService: string) => {
     }
 };
 
-// Convert client form data to API model according to integration type
+/**
+ * Converts form data to a Client object based on the integration type.
+ *
+ * @param integrationType - The integration type of the client (e.g., Maskinporten, KRR, Idporten).
+ * @param formData - The form data containing client information.
+ */
 export const convertClientFormDataToClient = (integrationType: IntegrationType, formData: Record<string, any>): Client => {
     if (integrationType === IntegrationType.MASKINPORTEN || integrationType === IntegrationType.KRR) {
         const data = formData as BaseSchema & MaskinportenSchema;
@@ -335,6 +477,13 @@ export const convertClientFormDataToClient = (integrationType: IntegrationType, 
     }
 }
 
+/**
+ * Validates the client form data against the appropriate schema based on the integration type.
+ *
+ * @param formData - The form data containing client information.
+ * @param uris - The URIs for redirect and post logout, used for validation.
+ * @param setUriValidationError - A function to set the URI validation error state.
+ */
 export function validateClientForm(
     formData: FormData,
     uris: UriTypes,

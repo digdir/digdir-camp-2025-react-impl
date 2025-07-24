@@ -34,26 +34,7 @@ interface ChatbotResponse {
 }
 
 /**
- * Service to interact with the chatbot API.
- * Handles                        onClick={() => {
-                            if (activeRequest) {
-                                activeRequest.abort();
-                                setActiveRequest(null);
-                            }
-                            setLoading(false);
-                            setMessages([]);
-                            setLockedContext(null); // Fjern låst kontekst når chatten tømmes
-                            lastContextLabelRef.current = null;
-                            lastContextMessageRef.current = null;
-                            setContextMessage(null);
-
-                            try {
-                                sessionStorage.removeItem(CONTEXT_MESSAGE_KEY);
-                                sessionStorage.removeItem(CONTEXT_LABEL_KEY);
-                            } catch {
-                                // ignore
-                            }
-                        }} and receiving answers.
+ * Service for interacting with the chatbot API.
  */
 class ChatbotService {
     private static readonly BASE_URL = 'http://localhost:8000';
@@ -191,7 +172,6 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
     const inputLower = input.toLowerCase();
     const suggestions: Suggestion[] = [];
 
-    // Context-specific suggestions
     switch (context?.page) {
     case 'home':
         suggestions.push(
@@ -332,7 +312,6 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
         break;
     }
 
-    // Filter suggestions based on input
     if (input.trim()) {
         return suggestions.filter(suggestion => 
             suggestion.text.toLowerCase().includes(inputLower) ||
@@ -341,7 +320,6 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
         );
     }
 
-    // Return all suggestions if no input, grouped by category
     return suggestions.sort((a, b) => {
         if (a.category !== b.category) {
             return a.category.localeCompare(b.category);
@@ -350,13 +328,18 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
     });
 }
 
+/**
+ * Interface for actions that can be dispatched to highlight tabs or JWKs.
+ */
 export interface HighlightAction {
   type: 'highlight-tab' | 'highlight-jwk';
   tabId?: string;
   jwkKid?: string;
 }
 
-// Global state for håndtering av pågående chatbot-forespørsler
+/**
+ * Interface for the global AI assistant state.
+ */
 interface GlobalAiState {
     context: any;
     setContext: (context: any) => void;
@@ -370,7 +353,9 @@ interface GlobalAiState {
     setActiveRequest: (controller: AbortController | null) => void;
 }
 
-// Opprett en Context for AI-assistentens globale tilstand
+/**
+ * Context for the AI assistant state.
+ */
 const AiAssistantContext = createContext<GlobalAiState | null>(null);
 
 export const AiAssistantProvider = ({ children }: { children: React.ReactNode }) => {
@@ -395,21 +380,18 @@ export const AiAssistantProvider = ({ children }: { children: React.ReactNode })
     const [activeRequest, setActiveRequest] = useState<AbortController | null>(null);
     const activeRequestRef = useRef<AbortController | null>(null);
 
-    // Oppdater ref når activeRequest endres
     useEffect(() => {
         activeRequestRef.current = activeRequest;
     }, [activeRequest]);
 
-    // Lagre meldinger til sessionStorage når de endres
     useEffect(() => {
         try {
             sessionStorage.setItem('ai_assistant_session', JSON.stringify(messages));
         } catch {
-            // ignore
+
         }
     }, [messages]);
 
-    // Lagre låst kontekst til sessionStorage
     useEffect(() => {
         try {
             if (lockedContext) {
@@ -418,18 +400,18 @@ export const AiAssistantProvider = ({ children }: { children: React.ReactNode })
                 sessionStorage.removeItem('ai_assistant_locked_context');
             }
         } catch {
-            // ignore
+
         }
     }, [lockedContext]);
 
-    // Cleanup effect - avbryt pågående forespørsel når hele applikasjonen unmountes
+
     useEffect(() => {
         return () => {
             if (activeRequestRef.current) {
                 activeRequestRef.current.abort();
             }
         };
-    }, []); // Tom dependency array betyr at cleanup bare kjører når komponenten unmountes
+    }, []);
 
     const memoizedValue = useMemo(() => ({ 
         context, 
@@ -451,6 +433,9 @@ export const AiAssistantProvider = ({ children }: { children: React.ReactNode })
     );
 };
 
+/**
+ * Custom hook to access the AI assistant context.
+ */
 export const useAiAssistantContext = () => {
     const context = useContext(AiAssistantContext);
     if (!context) {
@@ -507,12 +492,10 @@ export default function AiAssistant(): React.JSX.Element {
     useEffect(() => {
         const storedPath = sessionStorage.getItem('chatbot_last_path');
         if (storedPath !== location.pathname) {
-            // Bare nullstill context hvis det ikke er en pågående samtale (lockedContext)
             if (!lockedContext) {
                 lastContextMessageRef.current = null;
                 lastContextLabelRef.current = null;
             } else {
-                // Hvis vi har låst kontekst, behold context-labelet
                 const currentContextLabel = getContextLabel(lockedContext);
                 lastContextMessageRef.current = `Nåværende kontekst: ${currentContextLabel}`;
                 lastContextLabelRef.current = currentContextLabel;
@@ -549,7 +532,6 @@ export default function AiAssistant(): React.JSX.Element {
         }
     }, [aiPanelOpen]);
 
-    // Legger til logging for debugging
     useEffect(() => {
         console.log('Context oppdatert:', context);
     }, [context]);
@@ -572,8 +554,8 @@ export default function AiAssistant(): React.JSX.Element {
             setShowSuggestions(contextualSuggestions.length > 0);
         } else {
             const allSuggestions = getContextualSuggestions(context);
-            setSuggestions(allSuggestions.slice(0, 8)); // Limit to 8 suggestions when no input
-            setShowSuggestions(false); // Don't show by default when empty
+            setSuggestions(allSuggestions.slice(0, 8));
+            setShowSuggestions(false);
         }
         setSelectedSuggestionIndex(-1);
     }, [context, question]);
@@ -681,7 +663,7 @@ export default function AiAssistant(): React.JSX.Element {
                 sessionStorage.setItem(CONTEXT_MESSAGE_KEY, `Nåværende kontekst: ${currentContextLabel}`);
                 sessionStorage.setItem(CONTEXT_LABEL_KEY, currentContextLabel);
             } catch {
-                // ignore
+
             }
         }
 
@@ -697,7 +679,6 @@ export default function AiAssistant(): React.JSX.Element {
 
         let index = 0;
         const interval = setInterval(() => {
-            // Sjekk om forespørselen er avbrutt før hver oppdatering
             if (abortController.signal.aborted) {
                 clearInterval(interval);
                 return;
@@ -733,20 +714,17 @@ export default function AiAssistant(): React.JSX.Element {
         
         if (hasKeyWord || hasExpiredWord || hasProblemWord) {
             console.log('🔑 Key highlighting triggered:', { hasKeyWord, hasExpiredWord, hasProblemWord, question: lowerQuestion });
-            
-            // Highlight the keys tab with improved styling
+
             const tabEl = document.querySelector('[data-tab-id="keys"]');
             if (tabEl) {
                 console.log('🎯 Highlighting keys tab with improved styling');
                 tabEl.classList.add('ai-tab-highlight');
-                
-                // Remove highlight after 5 seconds (increased for better visibility)
+
                 setTimeout(() => {
                     tabEl.classList.remove('ai-tab-highlight');
                 }, 5000);
             }
-            
-            // If asking about expired keys or problems, highlight expired keys
+
             if (hasExpiredWord || hasProblemWord) {
                 highlightExpiredKeys(context);
             }
@@ -759,8 +737,7 @@ export default function AiAssistant(): React.JSX.Element {
     const highlightExpiredKeys = useCallback((context: any) => {
         console.log('🚀 Starting highlightExpiredKeys function'); 
         console.log('📋 Full context:', context);
-        
-        // Get current time for comparison
+
         const now = new Date();
         console.log(`⏰ Current time: ${now.toISOString()}`);
         
@@ -773,8 +750,7 @@ export default function AiAssistant(): React.JSX.Element {
                 const keyDate = dateFromEpochSeconds(key.exp);
                 const keyIsExpired = isExpired(keyDate);
                 console.log(`🔍 Key ${key.kid}: exp=${key.exp} (${keyDate.toISOString()}) vs now (${now.toISOString()}), isExpired=${keyIsExpired}`);
-                
-                // Double check with manual calculation
+
                 const manualCheck = keyDate.getTime() < now.getTime();
                 console.log(`🔍 Manual check for ${key.kid}: ${manualCheck} (keyTime: ${keyDate.getTime()}, nowTime: ${now.getTime()})`);
                 
@@ -790,15 +766,12 @@ export default function AiAssistant(): React.JSX.Element {
             keysInContext: context?.keys || context?.jwks
         });
 
-        // Check if we need to navigate to keys tab first
         const allKeyElements = document.querySelectorAll('[data-key-id]');
         console.log('🎯 Found DOM elements with data-key-id:', allKeyElements.length);
-        
-        // If no key DOM elements found but we have keys in context, we might need to navigate to keys tab
+
         if (allKeyElements.length === 0 && (context?.keys || context?.jwks)?.length > 0) {
             console.log('🔄 No key DOM elements found, looking for keys tab to click...');
-            
-            // Look for "Nøkler" tab and click it
+
             const tabElements = document.querySelectorAll('[role="tab"]');
             console.log('🎯 Found tabs:', tabElements.length);
             
@@ -815,8 +788,7 @@ export default function AiAssistant(): React.JSX.Element {
             if (keysTab) {
                 console.log('�️ Clicking keys tab to load key elements...');
                 (keysTab as HTMLElement).click();
-                
-                // Wait for DOM to update, then try highlighting again
+
                 setTimeout(() => {
                     console.log('🔄 Retrying highlight after tab navigation...');
                     highlightExpiredKeysAfterTabLoad(expiredKids);
@@ -827,7 +799,6 @@ export default function AiAssistant(): React.JSX.Element {
             }
         }
 
-        // If we have DOM elements or no keys to highlight, proceed normally
         highlightExpiredKeysAfterTabLoad(expiredKids);
     }, []);
 
@@ -835,7 +806,6 @@ export default function AiAssistant(): React.JSX.Element {
      * Helper function to highlight expired keys after ensuring the tab is loaded
      */
     const highlightExpiredKeysAfterTabLoad = (expiredKids: string[] | undefined) => {
-        // Always try to find DOM elements regardless of expired status for testing
         const allKeyElements = document.querySelectorAll('[data-key-id]');
         console.log('🎯 Found DOM elements with data-key-id:', allKeyElements.length);
         allKeyElements.forEach((el, index) => {
@@ -845,13 +815,11 @@ export default function AiAssistant(): React.JSX.Element {
 
         if (expiredKids && expiredKids.length > 0) {
             console.log('⚠️ Highlighting expired keys with blinking animation:', expiredKids);
-            
-            // Remove existing highlights
+
             document.querySelectorAll('[data-key-id]').forEach((el) => {
                 (el as HTMLElement).classList.remove('jwk-expired-highlight');
             });
 
-            // Add highlights with staggered animation
             setTimeout(() => {
                 expiredKids.forEach((kid: string, index: number) => {
                     const el = document.querySelector(`[data-key-id="${kid}"]`);
@@ -861,18 +829,16 @@ export default function AiAssistant(): React.JSX.Element {
                         setTimeout(() => {
                             console.log(`✨ Adding highlight to key: ${kid}`);
                             el.classList.add('jwk-expired-highlight');
-                            
-                            // Scroll to first expired key for visibility
+
                             if (index === 0) {
                                 el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }
-                            
-                            // Remove highlight after 8 seconds (longer for better visibility)
+
                             setTimeout(() => {
                                 console.log(`🔄 Removing highlight from key: ${kid}`);
                                 el.classList.remove('jwk-expired-highlight');
                             }, 8000);
-                        }, index * 300); // Increased stagger time for better effect
+                        }, index * 300);
                     } else {
                         console.warn('❌ DOM-element for nøkkel ikke funnet:', kid);
                         console.log('Available elements:', document.querySelectorAll('[data-key-id]'));
@@ -881,8 +847,7 @@ export default function AiAssistant(): React.JSX.Element {
             }, 200);
         } else {
             console.log('ℹ️ No expired keys found by isExpired function');
-            
-            // For testing purposes - highlight all keys temporarily if no expired ones
+
             if (allKeyElements.length > 0) {
                 console.log('🧪 TEST MODE: Highlighting all keys for 3 seconds since no expired keys found');
                 allKeyElements.forEach((el, index) => {
@@ -919,10 +884,8 @@ export default function AiAssistant(): React.JSX.Element {
             }
         };
 
-        // Add event listener to document for tab clicks
         document.addEventListener('click', handleTabClick);
-        
-        // Cleanup
+
         return () => {
             document.removeEventListener('click', handleTabClick);
         };
@@ -937,10 +900,8 @@ export default function AiAssistant(): React.JSX.Element {
         e.preventDefault();
         if (!question.trim()) return;
 
-        // For nye spørsmål: Bruk alltid gjeldende kontekst fra siden
-        // Dette sikrer at konteksten oppdateres når brukeren navigerer til nye sider
         const contextToUse = context;
-        setLockedContext(contextToUse); // Låse konteksten for denne samtalen
+        setLockedContext(contextToUse);
 
         const currentContextLabel = getContextLabel(contextToUse);
         lastContextMessageRef.current ??= `Nåværende kontekst: ${currentContextLabel}`;
@@ -971,19 +932,16 @@ export default function AiAssistant(): React.JSX.Element {
         setQuestion('');
         setLoading(true);
 
-        // Avbryt eventuell pågående forespørsel
         if (activeRequest) {
             activeRequest.abort();
         }
 
-        // Opprett ny AbortController for denne forespørselen
         const newAbortController = new AbortController();
         setActiveRequest(newAbortController);
 
         try {
             const result = await ChatbotService.askChatbot(question, contextToUse, newAbortController);
-            
-            // Sjekk om forespørselen fortsatt er aktiv (ikke avbrutt av ny navigasjon)
+
             if (newAbortController.signal.aborted) {
                 return;
             }
@@ -991,7 +949,6 @@ export default function AiAssistant(): React.JSX.Element {
             await handleTypingAnimation(result.answer, newAbortController);
             await handleKeyHighlighting(question, contextToUse);
         } catch (error) {
-            // Ikke vis feilmelding hvis forespørselen ble avbrutt
             if (error instanceof DOMException && error.name === 'AbortError') {
                 console.log('Chatbot request was aborted');
                 return;
@@ -1094,7 +1051,7 @@ export default function AiAssistant(): React.JSX.Element {
                             rows={3}
                         />
                         
-                        {/* Stop button when AI is generating */}
+                        {}
                         {loading && (
                             <button
                                 type="button"
@@ -1119,7 +1076,7 @@ export default function AiAssistant(): React.JSX.Element {
                             </button>
                         )}
                         
-                        {/* Auto-completion suggestions dropdown */}
+                        {}
                         {showSuggestions && suggestions.length > 0 && !loading && (
                             <div 
                                 ref={suggestionsRef}
@@ -1160,14 +1117,13 @@ export default function AiAssistant(): React.JSX.Element {
                         type="button"
                         disabled={loading}
                         onClick={() => {
-                            // Avbryt pågående forespørsel
                             if (activeRequest) {
                                 activeRequest.abort();
                                 setActiveRequest(null);
                             }
                             setLoading(false);
                             setMessages([]);
-                            setLockedContext(null); // Fjern låst kontekst når chatten tømmes
+                            setLockedContext(null);
                             lastContextLabelRef.current = null;
                             lastContextMessageRef.current = null;
 
@@ -1176,7 +1132,7 @@ export default function AiAssistant(): React.JSX.Element {
                                 sessionStorage.removeItem(CONTEXT_LABEL_KEY);
                                 sessionStorage.removeItem('ai_assistant_locked_context');
                             } catch {
-                                // ignore
+
                             }
                         }}
                         title="Tøm chat"

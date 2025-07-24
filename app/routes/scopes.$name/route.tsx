@@ -131,7 +131,6 @@ export default function ScopeDetails() {
 
     const { scope, scopesWithAccess, delegationSources } = data;
 
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
         if (!scope) return;
 

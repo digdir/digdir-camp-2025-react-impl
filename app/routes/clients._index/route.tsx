@@ -65,7 +65,6 @@ export default function Clients() {
     const searchTerms = search.toLowerCase().split(' ');
     const fieldsToSearch = ['client_name', 'client_id', 'description'];
 
-    // Set initial sorting by "created" in ascending order
     const [sortField, setSortField] = useState<SortField>(SortField.Created);
     const [sortAscending, setSortAscending] = useState(false);
 

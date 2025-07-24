@@ -95,7 +95,6 @@ export default function Scopes() {
         if (sortField === field) {
             setSortAscending(!sortAscending);
         } else {
-            // Set new sort field and default to ascending
             setSortField(field);
             setSortAscending(true);
         }
@@ -103,7 +102,6 @@ export default function Scopes() {
 
     const sortedScopes = scopes ? [...scopes].sort((a, b) => compareScopes(a, b, sortField)) : [];
 
-    // Filter scopes based on search terms and selected prefix
     const filteredScopes = sortedScopes;
 
     const nameSortOrder = sortField === SortField.Name ? (sortAscending ? 'ascending' : 'descending') : 'none';

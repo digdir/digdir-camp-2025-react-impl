@@ -22,6 +22,9 @@ const pemCertRegex = /-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE----
 const pemPublicKeyRegex = /-----BEGIN (RSA |EC |)?PUBLIC KEY-----[\s\S]+-----END (RSA |EC |)?PUBLIC KEY-----/;
 const pemPrivateKeyRegex = /PRIVATE KEY/;
 
+/**
+ * Schema for validating JWK or PEM formatted keys.
+ */
 export const schema = z.object({
     jwk: z
         .string({ required_error: 'validation.key_required' })
@@ -52,7 +55,12 @@ export const schema = z.object({
         }),
 });
 
-
+/**
+ * Modal component for adding a new key to the client.
+ *
+ * @param closeModal - Function to close the modal.
+ * @constructor - This component renders a form for adding a new key, validates the input, and submits it to the server.
+ */
 const AddKeyModal = ({ closeModal }: { closeModal: () => void }) => {
     const [form, fields] = useForm({
         onValidate({ formData }) {
@@ -119,7 +127,12 @@ const AddKeyModal = ({ closeModal }: { closeModal: () => void }) => {
     )
 }
 
-
+/**
+ * Component that displays the keys associated with a client.
+ *
+ * @param jwks - An array of JWK objects representing the keys associated with the client.
+ * @constructor - This component fetches the context for the AI assistant, displays the keys, and allows the user to add or delete keys.
+ */
 const Keys = ({ jwks }: { jwks: JWK[] }) => {
     const { t } = useTranslation();
     const [kidToDelete, setKidToDelete] = useState<string | null>(null);
@@ -290,4 +303,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
     );
 };
 
+/**
+ * Keys component that displays the keys associated with a client.
+ */
 export default Keys;
