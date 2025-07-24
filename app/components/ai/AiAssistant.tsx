@@ -1,8 +1,10 @@
 import { TrashIcon } from '@navikt/aksel-icons';
 import React, {createContext, useContext, useEffect, useMemo, useRef, useState} from 'react';
-import '~/styles/client-page.css';
-import { v4 as uuidv4 } from 'uuid';
 import { useLocation } from 'react-router';
+import { v4 as uuidv4 } from 'uuid';
+
+import { dateFromEpochSeconds, isExpired } from '~/lib/utils';
+import '~/styles/client-page.css';
 
 /**
  * Custom message interface for AI assistant
@@ -444,40 +446,211 @@ export default function AiAssistant(): React.JSX.Element {
      * Handles key highlighting based on the question content
      */
     const handleKeyHighlighting = async (question: string, context: any) => {
-        if (question.toLowerCase().includes('nøkkel') || question.toLowerCase().includes('key')) {
+        const lowerQuestion = question.toLowerCase();
+        const keyWords = ['nøkkel', 'key', 'keys', 'nøkler', 'sertifikat', 'certificate', 'jwk', 'jwt', 'kryptografi', 'crypto'];
+        const expiredWords = ['utløpt', 'expired', 'expire', 'utløper', 'expiry', 'utløp', 'gammel', 'old', 'invalid', 'ugyldig'];
+        const problemWords = ['problem', 'feil', 'error', 'issue', 'trouble', 'ikke fungerer', 'virker ikke'];
+        
+        const hasKeyWord = keyWords.some(word => lowerQuestion.includes(word));
+        const hasExpiredWord = expiredWords.some(word => lowerQuestion.includes(word));
+        const hasProblemWord = problemWords.some(word => lowerQuestion.includes(word));
+        
+        if (hasKeyWord || hasExpiredWord || hasProblemWord) {
+            console.log('🔑 Key highlighting triggered:', { hasKeyWord, hasExpiredWord, hasProblemWord, question: lowerQuestion });
+            
+            // Highlight the keys tab with improved styling
             const tabEl = document.querySelector('[data-tab-id="keys"]');
             if (tabEl) {
+                console.log('🎯 Highlighting keys tab with improved styling');
                 tabEl.classList.add('ai-tab-highlight');
-                tabEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            const expiredKids = context?.jwks
-                ?.filter((key: any) => {
-                    const now = Math.floor(Date.now() / 1000);
-                    return key.exp && key.exp < now;
-                })
-                ?.map((key: any) => key.kid);
-
-            console.log('Expired kids:', expiredKids);
-
-            if (expiredKids?.length > 0) {
-                document.querySelectorAll('[data-key-id]').forEach((el) => {
-                    (el as HTMLElement).classList.remove('jwk-expired-highlight');
-                });
-
+                
+                // Remove highlight after 5 seconds (increased for better visibility)
                 setTimeout(() => {
-                    expiredKids.forEach((kid: string) => {
-                        const el = document.querySelector(`[data-key-id="${kid}"]`);
-                        if (el) {
-                            el.classList.add('jwk-expired-highlight');
-                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        } else {
-                            console.warn('DOM-element for nøkkel ikke funnet:', kid);
-                        }
-                    });
-                }, 300);
+                    tabEl.classList.remove('ai-tab-highlight');
+                }, 5000);
+            }
+            
+            // If asking about expired keys or problems, highlight expired keys
+            if (hasExpiredWord || hasProblemWord) {
+                highlightExpiredKeys(context);
             }
         }
     };
+
+    /**
+     * Highlights expired keys with blinking red animation
+     */
+    const highlightExpiredKeys = (context: any) => {
+        console.log('🚀 Starting highlightExpiredKeys function'); 
+        console.log('📋 Full context:', context);
+        
+        // Get current time for comparison
+        const now = new Date();
+        console.log(`⏰ Current time: ${now.toISOString()}`);
+        
+        const expiredKids = (context?.keys || context?.jwks)
+            ?.filter((key: any) => {
+                if (!key.exp) {
+                    console.log(`⚠️ Key ${key.kid}: No expiration date`);
+                    return false;
+                }
+                const keyDate = dateFromEpochSeconds(key.exp);
+                const keyIsExpired = isExpired(keyDate);
+                console.log(`🔍 Key ${key.kid}: exp=${key.exp} (${keyDate.toISOString()}) vs now (${now.toISOString()}), isExpired=${keyIsExpired}`);
+                
+                // Double check with manual calculation
+                const manualCheck = keyDate.getTime() < now.getTime();
+                console.log(`🔍 Manual check for ${key.kid}: ${manualCheck} (keyTime: ${keyDate.getTime()}, nowTime: ${now.getTime()})`);
+                
+                return keyIsExpired;
+            })
+            ?.map((key: any) => key.kid);
+
+        console.log('🔍 Checking for expired keys:', { 
+            totalKeys: (context?.keys || context?.jwks)?.length || 0, 
+            expiredKids: expiredKids || [],
+            contextHasKeys: !!(context?.keys || context?.jwks),
+            contextStructure: Object.keys(context || {}),
+            keysInContext: context?.keys || context?.jwks
+        });
+
+        // Check if we need to navigate to keys tab first
+        const allKeyElements = document.querySelectorAll('[data-key-id]');
+        console.log('🎯 Found DOM elements with data-key-id:', allKeyElements.length);
+        
+        // If no key DOM elements found but we have keys in context, we might need to navigate to keys tab
+        if (allKeyElements.length === 0 && (context?.keys || context?.jwks)?.length > 0) {
+            console.log('🔄 No key DOM elements found, looking for keys tab to click...');
+            
+            // Look for "Nøkler" tab and click it
+            const tabElements = document.querySelectorAll('[role="tab"]');
+            console.log('🎯 Found tabs:', tabElements.length);
+            
+            let keysTab = null;
+            tabElements.forEach((tab, index) => {
+                const tabText = tab.textContent?.toLowerCase() || '';
+                console.log(`Tab ${index}: "${tab.textContent}"`);
+                if (tabText.includes('nøkler') || tabText.includes('nøkkel') || tabText.includes('keys')) {
+                    keysTab = tab;
+                    console.log('🎯 Found keys tab!');
+                }
+            });
+            
+            if (keysTab) {
+                console.log('�️ Clicking keys tab to load key elements...');
+                (keysTab as HTMLElement).click();
+                
+                // Wait for DOM to update, then try highlighting again
+                setTimeout(() => {
+                    console.log('🔄 Retrying highlight after tab navigation...');
+                    highlightExpiredKeysAfterTabLoad(expiredKids);
+                }, 500);
+                return;
+            } else {
+                console.warn('❌ Could not find keys tab to click');
+            }
+        }
+
+        // If we have DOM elements or no keys to highlight, proceed normally
+        highlightExpiredKeysAfterTabLoad(expiredKids);
+    };
+
+    /**
+     * Helper function to highlight expired keys after ensuring the tab is loaded
+     */
+    const highlightExpiredKeysAfterTabLoad = (expiredKids: string[] | undefined) => {
+        // Always try to find DOM elements regardless of expired status for testing
+        const allKeyElements = document.querySelectorAll('[data-key-id]');
+        console.log('🎯 Found DOM elements with data-key-id:', allKeyElements.length);
+        allKeyElements.forEach((el, index) => {
+            const keyId = el.getAttribute('data-key-id');
+            console.log(`  Element ${index}: data-key-id="${keyId}"`);
+        });
+
+        if (expiredKids?.length > 0) {
+            console.log('⚠️ Highlighting expired keys with blinking animation:', expiredKids);
+            
+            // Remove existing highlights
+            document.querySelectorAll('[data-key-id]').forEach((el) => {
+                (el as HTMLElement).classList.remove('jwk-expired-highlight');
+            });
+
+            // Add highlights with staggered animation
+            setTimeout(() => {
+                expiredKids.forEach((kid: string, index: number) => {
+                    const el = document.querySelector(`[data-key-id="${kid}"]`);
+                    console.log(`🎯 Looking for element with data-key-id="${kid}":`, el);
+                    
+                    if (el) {
+                        setTimeout(() => {
+                            console.log(`✨ Adding highlight to key: ${kid}`);
+                            el.classList.add('jwk-expired-highlight');
+                            
+                            // Scroll to first expired key for visibility
+                            if (index === 0) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                            
+                            // Remove highlight after 8 seconds (longer for better visibility)
+                            setTimeout(() => {
+                                console.log(`🔄 Removing highlight from key: ${kid}`);
+                                el.classList.remove('jwk-expired-highlight');
+                            }, 8000);
+                        }, index * 300); // Increased stagger time for better effect
+                    } else {
+                        console.warn('❌ DOM-element for nøkkel ikke funnet:', kid);
+                        console.log('Available elements:', document.querySelectorAll('[data-key-id]'));
+                    }
+                });
+            }, 200);
+        } else {
+            console.log('ℹ️ No expired keys found by isExpired function');
+            
+            // For testing purposes - highlight all keys temporarily if no expired ones
+            if (allKeyElements.length > 0) {
+                console.log('🧪 TEST MODE: Highlighting all keys for 3 seconds since no expired keys found');
+                allKeyElements.forEach((el, index) => {
+                    setTimeout(() => {
+                        el.classList.add('jwk-expired-highlight');
+                        setTimeout(() => {
+                            el.classList.remove('jwk-expired-highlight');
+                        }, 3000);
+                    }, index * 200);
+                });
+            } else {
+                console.log('ℹ️ No key DOM elements to highlight');
+            }
+        }
+    };
+
+    /**
+     * Sets up event listener for keys tab clicks to highlight expired keys
+     */
+    useEffect(() => {
+        const handleTabClick = (event: Event) => {
+            const target = event.target as HTMLElement;
+            const tabElement = target.closest('[data-tab-id="keys"]');
+            
+            if (tabElement) {
+                console.log('🎯 Keys tab clicked - checking for expired keys');
+                
+                // Get current context
+                const currentContext = lockedContext || context;
+                if (currentContext) {
+                    // Highlight expired keys when tab is clicked
+                    highlightExpiredKeys(currentContext);
+                }
+            }
+        };
+
+        // Add event listener to document for tab clicks
+        document.addEventListener('click', handleTabClick);
+        
+        // Cleanup
+        return () => {
+            document.removeEventListener('click', handleTabClick);
+        };
+    }, [context, lockedContext]);
 
     /**
      * Handles the submission of a question to the AI assistant.

@@ -7,7 +7,7 @@ import { parseWithZod } from '@conform-to/zod';
 import { useForm } from '@conform-to/react';
 
 import { ContextBuilder } from '~/lib/context-builder';
-import AiAssistant from '~/components/ai/AiAssistant';
+import { useAiAssistantContext } from '~/components/ai/AiAssistant';
 import { useTranslation } from '~/lib/i18n';
 import { dateFromEpochSeconds, formatDateTimeCompact, isExpired, isExpiredAfterOneMonth } from '~/lib/utils';
 import { JWK } from '~/lib/models';
@@ -124,7 +124,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
     const { t } = useTranslation();
     const [kidToDelete, setKidToDelete] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [context, setContext] = useState<any>(null);
+    const { setContext } = useAiAssistantContext();
 
     const fetcher = useFetcher();
 
@@ -138,7 +138,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
             });
         };
         void loadContext();
-    }, [jwks]);
+    }, [jwks, setContext]);
 
     const deleteKey = async () => {
         try {
@@ -155,7 +155,6 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
 
     return (
         <div className="items-center">
-            <AiAssistant context={context} />
             <div className="pt-6 flex items-center">
                 <div className="flex items-baseline gap-2">
                     <HeadingWrapper level={3} heading={t('client_page.keys_on_client', { count: 0 })} className=""/>
