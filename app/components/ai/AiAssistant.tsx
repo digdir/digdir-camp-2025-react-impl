@@ -1089,10 +1089,36 @@ export default function AiAssistant(): React.JSX.Element {
                             onKeyDown={handleKeyDown}
                             onFocus={handleInputFocus}
                             onBlur={handleInputBlur}
-                            placeholder="Still spørsmålet her..."
+                            placeholder={loading ? '' : 'Still spørsmålet her...'}
                             className="ai-textarea"
                             rows={3}
+                            disabled={loading}
                         />
+                        
+                        {/* Stop button when AI is generating */}
+                        {loading && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (activeRequest) {
+                                        activeRequest.abort();
+                                        setActiveRequest(null);
+                                    }
+                                    setLoading(false);
+                                }}
+                                title="Stopp generering"
+                                className="ai-stop-button"
+                            >
+                                <svg 
+                                    width="16" 
+                                    height="16" 
+                                    viewBox="0 0 24 24" 
+                                    fill="currentColor"
+                                >
+                                    <rect x="6" y="6" width="12" height="12" rx="2"/>
+                                </svg>
+                            </button>
+                        )}
                         
                         {/* Auto-completion suggestions dropdown */}
                         {showSuggestions && suggestions.length > 0 && (
@@ -1124,13 +1150,15 @@ export default function AiAssistant(): React.JSX.Element {
                             </div>
                         )}
                     </div>
-                    <button
-                        type="submit"
-                        disabled={loading || !question.trim()}
-                        className="ai-submit-button"
-                    >
-                        {loading ? 'Genererer svar...' : 'Spør'}
-                    </button>
+                    {!loading && (
+                        <button
+                            type="submit"
+                            disabled={!question.trim()}
+                            className="ai-submit-button"
+                        >
+                            Spør
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => {
@@ -1154,7 +1182,7 @@ export default function AiAssistant(): React.JSX.Element {
                             }
                         }}
                         title="Tøm chat"
-                        className={`${loading ? 'hidden' : 'fixed bottom-10 right-[15rem] ai-clear-button'}`}
+                        className={`${loading ? 'hidden' : 'fixed bottom-10 right-[15.5rem] ai-clear-button'}`}
                     >
                         <TrashIcon fontSize="1.25rem" />
                     </button>

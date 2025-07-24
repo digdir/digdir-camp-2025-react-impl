@@ -157,7 +157,7 @@
   position: sticky;
   bottom: 0;
   background: white;
-  padding: 1rem 0.8rem;
+  padding: 1rem 1.5rem 1rem 0rem;
   flex-shrink: 0;
   border-top: 1px solid #e5e7eb;
 }
@@ -192,6 +192,36 @@
   transition-all duration-150;
   border: 0;
   outline: none;
+}
+
+.ai-stop-button {
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  font-size: 12px;
+}
+
+.ai-stop-button:hover {
+  background-color: #b91c1c;
+}
+
+.ai-stop-button:focus {
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 2px rgba(220, 38, 38, 0.2);
 }
 
 .ai-response {
