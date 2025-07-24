@@ -1158,6 +1158,7 @@ export default function AiAssistant(): React.JSX.Element {
                     </button>
                     <button
                         type="button"
+                        disabled={loading}
                         onClick={() => {
                             // Avbryt pågående forespørsel
                             if (activeRequest) {
