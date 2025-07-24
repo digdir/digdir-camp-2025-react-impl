@@ -16,6 +16,16 @@ interface AiMessage {
 }
 
 /**
+ * Interface for auto-completion suggestions
+ */
+interface Suggestion {
+    id: string;
+    text: string;
+    description: string;
+    category: string;
+}
+
+/**
  * Response structure from the chatbot service.
  */
 interface ChatbotResponse {
@@ -170,6 +180,176 @@ function getContextLabel(context?: any): string {
     }
 }
 
+/**
+ * Generates context-aware suggestions based on the current page and user input.
+ *
+ * @param context - The current context of the AI assistant.
+ * @param input - The current user input.
+ * @returns An array of suggestions.
+ */
+function getContextualSuggestions(context?: any, input: string = ''): Suggestion[] {
+    const inputLower = input.toLowerCase();
+    const suggestions: Suggestion[] = [];
+
+    // Context-specific suggestions
+    switch (context?.page) {
+    case 'home':
+        suggestions.push(
+            {
+                id: 'overview-clients',
+                text: 'Gi meg en oversikt over mine klienter',
+                description: 'Se sammendrag av alle dine registrerte klienter',
+                category: 'Oversikt'
+            },
+            {
+                id: 'overview-scopes',
+                text: 'Hvilke scopes har jeg tilgang til?',
+                description: 'Se oversikt over tilgjengelige scopes',
+                category: 'Oversikt'
+            },
+            {
+                id: 'getting-started',
+                text: 'Hvordan kommer jeg i gang?',
+                description: 'Få hjelp til å komme i gang med plattformen',
+                category: 'Veiledning'
+            }
+        );
+        break;
+
+    case 'clients':
+        suggestions.push(
+            {
+                id: 'create-client',
+                text: 'Hvordan oppretter jeg en ny klient?',
+                description: 'Steg-for-steg guide til å opprette klient',
+                category: 'Opprettelse'
+            },
+            {
+                id: 'client-types',
+                text: 'Hvilke klienttyper finnes?',
+                description: 'Lær om forskjellige integrasjonstyper',
+                category: 'Informasjon'
+            },
+            {
+                id: 'find-client',
+                text: 'Hjelp meg å finne en spesifikk klient',
+                description: 'Søk og filtrer blant dine klienter',
+                category: 'Søk'
+            }
+        );
+        break;
+
+    case 'client-details':
+        suggestions.push(
+            {
+                id: 'update-client',
+                text: 'Hvordan oppdaterer jeg klientinformasjon?',
+                description: 'Endre innstillinger for denne klienten',
+                category: 'Redigering'
+            },
+            {
+                id: 'client-scopes',
+                text: 'Hvilke scopes har denne klienten?',
+                description: 'Se og administrer klientens scopes',
+                category: 'Scopes'
+            },
+            {
+                id: 'client-troubleshoot',
+                text: 'Klienten min fungerer ikke',
+                description: 'Feilsøk problemer med klienten',
+                category: 'Feilsøking'
+            }
+        );
+        break;
+
+    case 'client-keys':
+        suggestions.push(
+            {
+                id: 'add-key',
+                text: 'Hvordan legger jeg til en ny nøkkel?',
+                description: 'Guide for å legge til JWK eller sertifikat',
+                category: 'Nøkler'
+            },
+            {
+                id: 'expired-keys',
+                text: 'Mine nøkler har utløpt, hva gjør jeg?',
+                description: 'Håndter utløpte nøkler og forny dem',
+                category: 'Nøkler'
+            },
+            {
+                id: 'key-formats',
+                text: 'Hvilke nøkkelformater støttes?',
+                description: 'Lær om JWK, PEM og andre formater',
+                category: 'Informasjon'
+            }
+        );
+        break;
+
+    case 'scopes':
+        suggestions.push(
+            {
+                id: 'create-scope',
+                text: 'Hvordan oppretter jeg et nytt scope?',
+                description: 'Guide for å opprette nytt scope',
+                category: 'Opprettelse'
+            },
+            {
+                id: 'scope-permissions',
+                text: 'Hvordan fungerer scope-tilganger?',
+                description: 'Lær om delegering og tilgangsstyring',
+                category: 'Tilgang'
+            },
+            {
+                id: 'scope-prefixes',
+                text: 'Hva er scope-prefikser?',
+                description: 'Forstå organisering av scopes',
+                category: 'Informasjon'
+            }
+        );
+        break;
+
+    case 'scope-details':
+        suggestions.push(
+            {
+                id: 'scope-access',
+                text: 'Hvem har tilgang til dette scopet?',
+                description: 'Se hvem som kan bruke dette scopet',
+                category: 'Tilgang'
+            },
+            {
+                id: 'manage-access',
+                text: 'Hvordan gir jeg tilgang til andre?',
+                description: 'Dele scope-tilgang med andre organisasjoner',
+                category: 'Administrasjon'
+            },
+            {
+                id: 'scope-usage',
+                text: 'Hvordan brukes dette scopet?',
+                description: 'Praktisk veiledning for scope-bruk',
+                category: 'Bruk'
+            }
+        );
+        break;
+    }
+
+    // Filter suggestions based on input
+    if (input.trim()) {
+        return suggestions.filter(suggestion => 
+            suggestion.text.toLowerCase().includes(inputLower) ||
+            suggestion.description.toLowerCase().includes(inputLower) ||
+            suggestion.category.toLowerCase().includes(inputLower)
+        );
+    }
+
+    // Return all suggestions if no input, grouped by category
+    return suggestions.sort((a, b) => {
+        if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+        }
+        return a.text.localeCompare(b.text);
+    });
+}
+
 export interface HighlightAction {
   type: 'highlight-tab' | 'highlight-jwk';
   tabId?: string;
@@ -298,6 +478,12 @@ export default function AiAssistant(): React.JSX.Element {
         }
     });
     const [question, setQuestion] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+    const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+    
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const suggestionsRef = useRef<HTMLDivElement>(null);
     const initialLastContextMessage = (() => {
         try {
             return sessionStorage.getItem(CONTEXT_MESSAGE_KEY);
@@ -375,6 +561,104 @@ export default function AiAssistant(): React.JSX.Element {
     useEffect(() => {
         console.log('AI Panel status:', aiPanelOpen);
     }, [aiPanelOpen]);
+
+    /**
+     * Updates suggestions when context or question changes
+     */
+    useEffect(() => {
+        if (question.trim()) {
+            const contextualSuggestions = getContextualSuggestions(context, question);
+            setSuggestions(contextualSuggestions);
+            setShowSuggestions(contextualSuggestions.length > 0);
+        } else {
+            const allSuggestions = getContextualSuggestions(context);
+            setSuggestions(allSuggestions.slice(0, 8)); // Limit to 8 suggestions when no input
+            setShowSuggestions(false); // Don't show by default when empty
+        }
+        setSelectedSuggestionIndex(-1);
+    }, [context, question]);
+
+    /**
+     * Handles suggestion selection with keyboard navigation
+     */
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (!showSuggestions || suggestions.length === 0) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+            }
+            return;
+        }
+
+        switch (e.key) {
+        case 'ArrowDown':
+            e.preventDefault();
+            setSelectedSuggestionIndex(prev => 
+                prev < suggestions.length - 1 ? prev + 1 : 0
+            );
+            break;
+        case 'ArrowUp':
+            e.preventDefault();
+            setSelectedSuggestionIndex(prev => 
+                prev > 0 ? prev - 1 : suggestions.length - 1
+            );
+            break;
+        case 'Tab':
+        case 'Enter':
+            if (selectedSuggestionIndex >= 0) {
+                e.preventDefault();
+                const selectedSuggestion = suggestions[selectedSuggestionIndex];
+                setQuestion(selectedSuggestion.text);
+                setShowSuggestions(false);
+                setSelectedSuggestionIndex(-1);
+                textareaRef.current?.focus();
+            } else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+            }
+            break;
+        case 'Escape':
+            e.preventDefault();
+            setShowSuggestions(false);
+            setSelectedSuggestionIndex(-1);
+            break;
+        default:
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+            }
+        }
+    };
+
+    /**
+     * Handles suggestion click
+     */
+    const handleSuggestionClick = (suggestion: Suggestion) => {
+        setQuestion(suggestion.text);
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        textareaRef.current?.focus();
+    };
+
+    /**
+     * Handles input focus to show suggestions
+     */
+    const handleInputFocus = () => {
+        if (suggestions.length > 0) {
+            setShowSuggestions(true);
+        }
+    };
+
+    /**
+     * Handles input blur to hide suggestions (with delay for clicks)
+     */
+    const handleInputBlur = () => {
+        // Add small delay to allow suggestion clicks to register
+        setTimeout(() => {
+            setShowSuggestions(false);
+            setSelectedSuggestionIndex(-1);
+        }, 150);
+    };
 
     /**
      * Handles context changes and adds context messages if needed
@@ -797,19 +1081,49 @@ export default function AiAssistant(): React.JSX.Element {
                     <div className="ai-context-label">
                         Nåværende kontekst: {getContextLabel(context)}
                     </div>
-                    <textarea
-                        value={question}
-                        onChange={(e) => setQuestion(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                        }}
-                        placeholder="Still spørsmålet her..."
-                        className="ai-textarea"
-                        rows={3}
-                    />
+                    <div className="relative">
+                        <textarea
+                            ref={textareaRef}
+                            value={question}
+                            onChange={(e) => setQuestion(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onFocus={handleInputFocus}
+                            onBlur={handleInputBlur}
+                            placeholder="Still spørsmålet her..."
+                            className="ai-textarea"
+                            rows={3}
+                        />
+                        
+                        {/* Auto-completion suggestions dropdown */}
+                        {showSuggestions && suggestions.length > 0 && (
+                            <div 
+                                ref={suggestionsRef}
+                                className="absolute bottom-full left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 mb-2 ai-suggestions-dropdown"
+                            >
+                                {suggestions.map((suggestion, index) => (
+                                    <button
+                                        key={suggestion.id}
+                                        type="button"
+                                        className={`w-full text-left px-4 py-3 ai-suggestion-item transition-all duration-150 ${
+                                            index === selectedSuggestionIndex ? 'selected' : ''
+                                        }`}
+                                        onClick={() => handleSuggestionClick(suggestion)}
+                                        onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                                    >
+                                        <div className="ai-suggestion-text">
+                                            {suggestion.text}
+                                        </div>
+                                        <div className="ai-suggestion-description">
+                                            {suggestion.description}
+                                        </div>
+                                        <div className="ai-suggestion-category">
+                                            {suggestion.category}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     <button
                         type="submit"
                         disabled={loading || !question.trim()}
