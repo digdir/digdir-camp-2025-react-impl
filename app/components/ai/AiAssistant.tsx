@@ -1,5 +1,5 @@
 import { TrashIcon } from '@navikt/aksel-icons';
-import React, {createContext, useContext, useEffect, useMemo, useRef, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import { useLocation } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -294,15 +294,6 @@ export default function AiAssistant(): React.JSX.Element {
         }
     });
     const [question, setQuestion] = useState('');
-    const initialContextMessage = (() => {
-        try {
-            return sessionStorage.getItem(CONTEXT_MESSAGE_KEY);
-        } catch {
-            return null;
-        }
-    })();
-    const [contextMessage, setContextMessage] = useState<string | null>(initialContextMessage);
-    
     const initialLastContextMessage = (() => {
         try {
             return sessionStorage.getItem(CONTEXT_MESSAGE_KEY);
@@ -330,13 +321,11 @@ export default function AiAssistant(): React.JSX.Element {
             if (!lockedContext) {
                 lastContextMessageRef.current = null;
                 lastContextLabelRef.current = null;
-                setContextMessage(null);
             } else {
                 // Hvis vi har låst kontekst, behold context-labelet
                 const currentContextLabel = getContextLabel(lockedContext);
                 lastContextMessageRef.current = `Nåværende kontekst: ${currentContextLabel}`;
                 lastContextLabelRef.current = currentContextLabel;
-                setContextMessage(`Nåværende kontekst: ${currentContextLabel}`);
             }
             sessionStorage.setItem('chatbot_last_path', location.pathname);
         }
@@ -393,7 +382,6 @@ export default function AiAssistant(): React.JSX.Element {
             const contextMessage = `Byttet kontekst til: ${currentContextLabel}`;
             lastContextMessageRef.current = `Nåværende kontekst: ${currentContextLabel}`;
             lastContextLabelRef.current = currentContextLabel;
-            setContextMessage(`Nåværende kontekst: ${currentContextLabel}`);
 
             newMessages.push({
                 id: uuidv4(),
@@ -480,7 +468,7 @@ export default function AiAssistant(): React.JSX.Element {
     /**
      * Highlights expired keys with blinking red animation
      */
-    const highlightExpiredKeys = (context: any) => {
+    const highlightExpiredKeys = useCallback((context: any) => {
         console.log('🚀 Starting highlightExpiredKeys function'); 
         console.log('📋 Full context:', context);
         
@@ -553,7 +541,7 @@ export default function AiAssistant(): React.JSX.Element {
 
         // If we have DOM elements or no keys to highlight, proceed normally
         highlightExpiredKeysAfterTabLoad(expiredKids);
-    };
+    }, []);
 
     /**
      * Helper function to highlight expired keys after ensuring the tab is loaded
@@ -567,7 +555,7 @@ export default function AiAssistant(): React.JSX.Element {
             console.log(`  Element ${index}: data-key-id="${keyId}"`);
         });
 
-        if (expiredKids?.length > 0) {
+        if (expiredKids && expiredKids.length > 0) {
             console.log('⚠️ Highlighting expired keys with blinking animation:', expiredKids);
             
             // Remove existing highlights
@@ -650,7 +638,7 @@ export default function AiAssistant(): React.JSX.Element {
         return () => {
             document.removeEventListener('click', handleTabClick);
         };
-    }, [context, lockedContext]);
+    }, [context, lockedContext, highlightExpiredKeys]);
 
     /**
      * Handles the submission of a question to the AI assistant.
@@ -802,11 +790,9 @@ export default function AiAssistant(): React.JSX.Element {
                 </div>
 
                 <form onSubmit={handleSubmit} className="ai-form">
-                    {contextMessage && (
-                        <div className="ai-context-label">
-                            {contextMessage}
-                        </div>
-                    )}
+                    <div className="ai-context-label">
+                        Nåværende kontekst: {getContextLabel(context)}
+                    </div>
                     <textarea
                         value={question}
                         onChange={(e) => setQuestion(e.target.value)}
@@ -840,7 +826,6 @@ export default function AiAssistant(): React.JSX.Element {
                             setLockedContext(null); // Fjern låst kontekst når chatten tømmes
                             lastContextLabelRef.current = null;
                             lastContextMessageRef.current = null;
-                            setContextMessage(null);
 
                             try {
                                 sessionStorage.removeItem(CONTEXT_MESSAGE_KEY);
