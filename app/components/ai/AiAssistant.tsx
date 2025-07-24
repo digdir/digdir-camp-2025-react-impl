@@ -1089,10 +1089,9 @@ export default function AiAssistant(): React.JSX.Element {
                             onKeyDown={handleKeyDown}
                             onFocus={handleInputFocus}
                             onBlur={handleInputBlur}
-                            placeholder={loading ? '' : 'Still spørsmålet her...'}
+                            placeholder={loading ? 'Skriv neste spørsmål...' : 'Still spørsmålet her...'}
                             className="ai-textarea"
                             rows={3}
-                            disabled={loading}
                         />
                         
                         {/* Stop button when AI is generating */}
@@ -1121,7 +1120,7 @@ export default function AiAssistant(): React.JSX.Element {
                         )}
                         
                         {/* Auto-completion suggestions dropdown */}
-                        {showSuggestions && suggestions.length > 0 && (
+                        {showSuggestions && suggestions.length > 0 && !loading && (
                             <div 
                                 ref={suggestionsRef}
                                 className="absolute bottom-full left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto z-50 mb-2 ai-suggestions-dropdown"
@@ -1150,15 +1149,13 @@ export default function AiAssistant(): React.JSX.Element {
                             </div>
                         )}
                     </div>
-                    {!loading && (
-                        <button
-                            type="submit"
-                            disabled={!question.trim()}
-                            className="ai-submit-button"
-                        >
-                            Spør
-                        </button>
-                    )}
+                    <button
+                        type="submit"
+                        disabled={loading || !question.trim()}
+                        className="ai-submit-button"
+                    >
+                        Spør
+                    </button>
                     <button
                         type="button"
                         onClick={() => {
@@ -1182,7 +1179,7 @@ export default function AiAssistant(): React.JSX.Element {
                             }
                         }}
                         title="Tøm chat"
-                        className={`${loading ? 'hidden' : 'fixed bottom-10 right-[15.5rem] ai-clear-button'}`}
+                        className="fixed bottom-10 right-[15.5rem] ai-clear-button"
                     >
                         <TrashIcon fontSize="1.25rem" />
                     </button>

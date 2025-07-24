@@ -173,6 +173,8 @@
   focus:ring-2 focus:ring-blue-400
   transition duration-150
   resize-none;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .ai-textarea::placeholder {
@@ -196,7 +198,7 @@
 
 .ai-stop-button {
   position: absolute;
-  right: -5px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   width: 32px;
@@ -343,13 +345,19 @@
   hover:bg-gray-200
   text-gray-600
   transition-colors
-  duration-150;
+  duration-150
+  disabled:opacity-50
+  disabled:cursor-not-allowed;
   border: none;
 }
 
 .ai-clear-button:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+}
+
+.ai-clear-button:disabled:hover {
+  background-color: #f3f4f6;
 }
 
 .ai-context-label {
