@@ -136,6 +136,8 @@ function getEmptyMessage(context?: any): string {
         return 'Her kan du stille spørsmål om detaljer for dette scopet.';
     case 'client-details':
         return 'Her kan du stille spørsmål om detaljer for denne klienten.';
+    case 'client-keys':
+        return 'Her kan du stille spørsmål om nøklene til denne klienten.';
     default:
         return 'Spør meg om noe...';
     }
@@ -161,6 +163,8 @@ function getContextLabel(context?: any): string {
         return 'Scope-detaljer';
     case 'client-details':
         return 'Klient-detaljer';
+    case 'client-keys':
+        return 'Klient-nøkler';
     default:
         return 'Ukjent kontekst';
     }

@@ -1,6 +1,6 @@
 import { Button, Card, Checkbox, Dialog, Fieldset, Label, Paragraph, Search, Table } from '@digdir/designsystemet-react';
 import { PlusIcon, TrashIcon } from '@navikt/aksel-icons';
-import { Suspense, use, useMemo, useState } from 'react';
+import { Suspense, use, useEffect, useMemo, useState } from 'react';
 import { Form, useFetcher } from 'react-router';
 
 import { useTranslation } from '~/lib/i18n';
@@ -9,6 +9,7 @@ import ConfirmDeleteModal from '~/components/util/ConfirmDeleteModal';
 import { ApiResponse } from '~/lib/api_client';
 import AlertWrapper from '~/components/util/AlertWrapper';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
+import { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 import { ActionIntent } from './actions';
 
@@ -216,10 +217,20 @@ const Scopes = ({ scopes, scopesAccessibleForAll, scopesWithDelegationSource, sc
     const removeScopeFetcher = useFetcher({ key: FetcherKey.RemoveScope });
     const addScopeFetcher = useFetcher({ key: FetcherKey.AddScope });
     const actionError = removeScopeFetcher.data?.error || addScopeFetcher.data?.error;
+    const { setContext } = useAiAssistantContext();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [scopeToRemove, setScopeToRemove] = useState<string | null>(null);
+
+    // Set context back to client-details when this component is rendered
+    useEffect(() => {
+        setContext((prevContext: any) => ({
+            ...prevContext,
+            page: 'client-details',
+            info: 'Dette er klient-detaljer og scopes siden'
+        }));
+    }, [setContext]);
 
     const removeScopeFromClient = async () => {
         await removeScopeFetcher.submit({ intent: ActionIntent.DeleteScopeFromClient, scope: scopeToRemove }, { method: 'PUT' });

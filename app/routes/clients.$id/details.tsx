@@ -11,6 +11,7 @@ import MaskinportenClient from '~/components/clients/maskinporten';
 import AlertWrapper from '~/components/util/AlertWrapper';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { UriContext, UriTypes } from '~/components/context/UriContext';
+import { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 import { clientAction } from './route';
 import { ActionIntent } from './actions';
@@ -25,6 +26,7 @@ const Details = ({ client }: { client: components['schemas']['ClientResponse'] }
     const actionData = useActionData<typeof clientAction>();
     const navigation = useNavigation();
     const isUpdatingClient = navigation.formAction !== undefined;
+    const { setContext } = useAiAssistantContext();
 
     const uriCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -39,6 +41,15 @@ const Details = ({ client }: { client: components['schemas']['ClientResponse'] }
             uri,
         })),
     });
+
+    // Set context back to client-details when this component is rendered
+    useEffect(() => {
+        setContext((prevContext: any) => ({
+            ...prevContext,
+            page: 'client-details',
+            info: 'Dette er klient-detaljsiden'
+        }));
+    }, [setContext]);
 
     useEffect(() => {
         if (!uriValidationError) return;
