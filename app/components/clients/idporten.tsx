@@ -282,6 +282,7 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
                         name={fields.access_token_lifetime.name}
                         defaultValue={client?.access_token_lifetime || 120}
                         error={t(fields.access_token_lifetime.errors || '')}
+                        data-field-type="access_token_lifetime"
                     />
                     <Textfield
                         className={` ${client ? 'w-full xl:w-1/2' : 'w-full lg:w-1/4'} `}
@@ -292,6 +293,7 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
                         name={fields.refresh_token_lifetime.name}
                         defaultValue={client?.refresh_token_lifetime || 600}
                         error={t(fields.refresh_token_lifetime.errors || '')}
+                        data-field-type="refresh_token_lifetime"
                     />
                     <Textfield
                         className={` ${client ? 'w-full xl:w-1/2' : 'w-full lg:w-1/4'} `}
@@ -302,6 +304,7 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
                         name={fields.authorization_lifetime.name}
                         defaultValue={client?.authorization_lifetime || 7200}
                         error={t(fields.authorization_lifetime.errors || '')}
+                        data-field-type="authorization_lifetime"
                     />
                 </div>
             </Card>

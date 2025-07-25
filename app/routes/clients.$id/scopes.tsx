@@ -250,7 +250,7 @@ const Scopes = ({ scopes, scopesAccessibleForAll, scopesWithDelegationSource, sc
     );
 
     const rows = filteredExistingScopesOnClient.map(scope => (
-        <Table.Row key={scope}>
+        <Table.Row key={scope} data-scope-name={scope}>
             <Table.Cell className='py-4'>
                 {scope}
             </Table.Cell>

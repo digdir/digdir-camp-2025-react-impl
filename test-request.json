@@ -1,0 +1,11 @@
+{
+    "question": "Access tokens utløper før klientens innstilling",
+    "context": {
+        "page": "client-details",
+        "client": {
+            "client_id": "test-client",
+            "access_token_lifetime": 120
+        },
+        "scopeConflicts": []
+    }
+}

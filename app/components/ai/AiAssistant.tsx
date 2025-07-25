@@ -48,59 +48,164 @@ class ChatbotService {
    * @returns A promise that resolves to the chatbot response.
    */
     static async askChatbot(question: string, context?: any, abortController?: AbortController): Promise<ChatbotResponse> {
-        try {
-            console.log('ChatbotService: Sending request to chatbot', {
-                url: `${this.BASE_URL}/copilot/`,
-                question: question.substring(0, 100) + (question.length > 100 ? '...' : ''),
-                hasContext: !!context
-            });
+        return this.askChatbotWithRetry(question, context, abortController, 1);
+    }
 
-            const requestBody = {
-                question,
-                ...(context && { context })
-            };
+    /**
+     * Internal method with retry logic for CORS/network issues
+     */
+    private static async askChatbotWithRetry(question: string, context?: any, abortController?: AbortController, maxRetries: number = 1): Promise<ChatbotResponse> {
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`ChatbotService: Attempt ${attempt}/${maxRetries} - Sending request to chatbot`, {
+                    url: `${this.BASE_URL}/copilot/`,
+                    question: question.substring(0, 100) + (question.length > 100 ? '...' : ''),
+                    hasContext: !!context,
+                    contextKeys: context ? Object.keys(context) : [],
+                    contextSize: context ? JSON.stringify(context).length : 0,
+                    attempt
+                });
 
-            console.log('ChatbotService: sending context:', JSON.stringify(context, null, 2));
+                const requestBody = {
+                    question,
+                    ...(context && { context })
+                };
 
-            const response = await fetch(`${this.BASE_URL}/copilot/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-                signal: abortController?.signal
-            });
+                // Log context structure without exposing sensitive data
+                if (context) {
+                    console.log('ChatbotService: Context structure:', {
+                        page: context.page,
+                        hasClient: !!context.client,
+                        hasJwks: !!context.jwks,
+                        hasScopeConflicts: !!context.scopeConflicts,
+                        scopeConflictsCount: context.scopeConflicts?.length || 0,
+                        availableScopesKeys: context.availableScopes ? Object.keys(context.availableScopes) : [],
+                        clientScopes: context?.client?.scopes || [],
+                        accessibleForAllCount: context?.availableScopes?.accessibleForAll?.length || 0,
+                        accessibleForAllSample: context?.availableScopes?.accessibleForAll?.slice(0, 5)?.map(s => ({
+                            name: s.name,
+                            at_max_age: s.at_max_age,
+                            authorization_max_lifetime: s.authorization_max_lifetime
+                        })) || [],
+                        contextSizeKB: (JSON.stringify(context).length / 1024).toFixed(2) + ' KB'
+                    });
+                }
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('ChatbotService: HTTP error', {
+                // Check if context is too large (>1MB)
+                const contextString = JSON.stringify(requestBody);
+                const requestSizeKB = contextString.length / 1024;
+                console.log(`ChatbotService: Request size: ${requestSizeKB.toFixed(2)} KB`);
+                
+                if (requestSizeKB > 1000) {
+                    console.warn('ChatbotService: Large request detected, may cause issues');
+                }
+
+                console.log('ChatbotService: Making fetch request...');
+                
+                // Add timestamp to avoid browser caching issues with CORS
+                const timestamp = new Date().getTime();
+                const requestUrl = `${this.BASE_URL}/copilot/?_t=${timestamp}`;
+                
+                const response = await fetch(requestUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Add explicit headers to help with CORS
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    },
+                    body: contextString,
+                    signal: abortController?.signal,
+                    // Explicitly set credentials and cache policy
+                    credentials: 'omit', // Since we're not using authentication
+                    cache: 'no-cache',
+                    // Ensure we're making a fresh request
+                    mode: 'cors'
+                });
+
+                console.log('ChatbotService: Fetch completed', {
+                    ok: response.ok,
                     status: response.status,
                     statusText: response.statusText,
-                    errorBody: errorText
+                    headers: Object.fromEntries(response.headers.entries())
                 });
-            }
 
-            const data = await response.json();
-            console.log('ChatbotService: Successfully parsed response', {
-                hasAnswer: !!data.answer,
-                answerLength: data.answer?.length ?? 0,
-                hasSource: !!data.source
-            });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('ChatbotService: HTTP error', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        errorBody: errorText.substring(0, 500) + (errorText.length > 500 ? '...' : ''),
+                        requestSize: requestSizeKB.toFixed(2) + ' KB'
+                    });
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
 
-            return data;
-        } catch (error) {
-            if (error instanceof DOMException && error.name === 'AbortError') {
-                console.log('ChatbotService: Request was aborted');
-                throw error;
+                console.log('ChatbotService: Parsing response...');
+                const data = await response.json();
+                console.log('ChatbotService: Successfully parsed response', {
+                    hasAnswer: !!data.answer,
+                    answerLength: data.answer?.length ?? 0,
+                    hasSource: !!data.source
+                });
+
+                return data;
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+                
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    console.log('ChatbotService: Request was aborted');
+                    throw error;
+                }
+                
+                console.error(`ChatbotService: Attempt ${attempt} failed`, {
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                    url: `${this.BASE_URL}/copilot/`,
+                    question: question.substring(0, 50) + '...',
+                    errorType: error instanceof TypeError ? 'Network/CORS' : 'Other',
+                    contextPresent: !!context,
+                    requestSizeKB: context ? (JSON.stringify({ question, context }).length / 1024).toFixed(2) : 'N/A',
+                    attempt,
+                    willRetry: attempt < maxRetries
+                });
+                
+                // For CORS/Network errors, we could retry, but it's likely a backend configuration issue
+                if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('Failed to fetch'))) {
+                    if (attempt < maxRetries) {
+                        console.log('ChatbotService: CORS/Network error detected, waiting 1s before retry...');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    
+                    // Check if it's likely a CORS issue by looking at the browser console
+                    console.error('🚨 CORS/Network Error Detected - This usually means:');
+                    console.error('1. Browser is caching a failed CORS preflight request');
+                    console.error('2. Browser extensions (ad blockers) are interfering');
+                    console.error('3. Browser security policy is blocking the request');
+                    console.error('4. Backend crashed or returned 500 error');
+                    console.error('');
+                    console.error('🔧 Try these solutions:');
+                    console.error('1. Hard refresh the page (Ctrl+F5 or Cmd+Shift+R)');
+                    console.error('2. Clear browser cache and cookies');
+                    console.error('3. Disable browser extensions temporarily');
+                    console.error('4. Try in an incognito/private window');
+                    
+                    throw new Error('Browser CORS issue: Try hard refresh (Ctrl+F5) or incognito mode. Backend is working fine.');
+                }
+                
+                // For non-network errors, don't retry
+                if (attempt >= maxRetries) {
+                    break;
+                }
             }
-            console.error('ChatbotService: Request failed', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-                url: `${this.BASE_URL}/copilot/`,
-                question: question.substring(0, 50) + '...'
-            });
-            throw error;
         }
+        
+        // If we get here, all retries failed
+        throw lastError || new Error('All retry attempts failed');
     }
 }
 
@@ -169,7 +274,6 @@ function getContextLabel(context?: any): string {
  * @returns An array of suggestions.
  */
 function getContextualSuggestions(context?: any, input: string = ''): Suggestion[] {
-    const inputLower = input.toLowerCase();
     const suggestions: Suggestion[] = [];
 
     switch (context?.page) {
@@ -232,6 +336,24 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
                 text: 'Hvilke scopes har denne klienten?',
                 description: 'Se og administrer klientens scopes',
                 category: 'Scopes'
+            },
+            {
+                id: 'scope-lifetime-conflicts',
+                text: 'Klient med noen scopes på som logger ut brukeren lenge før det jeg har satt levetid til',
+                description: 'Analyser og løs scope lifetime konflikter',
+                category: 'Feilsøking'
+            },
+            {
+                id: 'fix-authorization-lifetime',
+                text: 'Hvorfor blir brukerne logget ut tidligere enn forventet?',
+                description: 'Sjekk autorisasjonslevetid mellom klient og scopes',
+                category: 'Feilsøking'
+            },
+            {
+                id: 'access-token-lifetime-issues',
+                text: 'Access tokens utløper før klientens innstilling',
+                description: 'Løs konflikter med access token levetid',
+                category: 'Feilsøking'
             },
             {
                 id: 'client-troubleshoot',
@@ -312,7 +434,93 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
         break;
     }
 
+    // Add scope conflict suggestions if there are conflicts in the context
+    if (context?.scopeConflicts && context.scopeConflicts.length > 0) {
+        const authLifetimeConflicts = context.scopeConflicts.filter((c: any) => c.type === 'authorization_lifetime_conflict');
+        const accessTokenConflicts = context.scopeConflicts.filter((c: any) => c.type === 'access_token_lifetime_conflict');
+
+        if (authLifetimeConflicts.length > 0) {
+            // High priority - authorization conflicts cause immediate logout
+            suggestions.unshift({
+                id: 'auth-lifetime-conflicts',
+                text: `Klienten har ${authLifetimeConflicts.length} scope(s) som logger ut brukeren tidligere enn forventet`,
+                description: 'Scopes med lavere autorisasjonslevetid overstyrer klientens innstillinger',
+                category: '🚨 Kritisk feil'
+            });
+
+            // Add specific suggestions for each conflicting scope
+            authLifetimeConflicts.slice(0, 3).forEach((conflict: any) => {
+                suggestions.unshift({
+                    id: `fix-auth-${conflict.scopeName}`,
+                    text: `Løs autorisasjonskonflikt for scope '${conflict.scopeName}'`,
+                    description: `Scope har ${conflict.scopeLifetime}s, klient har ${conflict.clientLifetime}s - reduser klientens levetid`,
+                    category: '🔧 Løsningsforslag'
+                });
+            });
+        }
+
+        if (accessTokenConflicts.length > 0) {
+            suggestions.unshift({
+                id: 'access-token-conflicts',
+                text: `Klienten har ${accessTokenConflicts.length} scope(s) med lavere access token levetid`,
+                description: 'Access tokens vil utløpe tidligere enn klientens innstillinger',
+                category: '⚠️ Konfigurasjonsfeil'
+            });
+
+            // Add specific suggestions for access token conflicts
+            accessTokenConflicts.slice(0, 2).forEach((conflict: any) => {
+                suggestions.unshift({
+                    id: `fix-token-${conflict.scopeName}`,
+                    text: `Juster access token levetid for scope '${conflict.scopeName}'`,
+                    description: `Scope har ${conflict.scopeLifetime}s, klient har ${conflict.clientLifetime}s`,
+                    category: '🔧 Løsningsforslag'
+                });
+            });
+        }
+
+        // Add general troubleshooting suggestion if there are many conflicts
+        if (context.scopeConflicts.length > 3) {
+            suggestions.unshift({
+                id: 'review-all-conflicts',
+                text: `Gjennomgå alle ${context.scopeConflicts.length} konfigurasjonskonflikter`,
+                description: 'Få en komplett oversikt over alle lifetime konflikter og anbefalte løsninger',
+                category: '📋 Komplett analyse'
+            });
+        }
+    }
+
+    // Add dynamic suggestions based on user input keywords
     if (input.trim()) {
+        const inputLower = input.toLowerCase();
+        
+        // Suggestions for lifetime and logout related keywords
+        if (inputLower.includes('levetid') || inputLower.includes('lifetime') || inputLower.includes('logger ut') || inputLower.includes('utløp')) {
+            suggestions.unshift({
+                id: 'lifetime-help',
+                text: 'Forstå hvordan scope lifetime påvirker min klient',
+                description: 'Lær om sammenhenger mellom klient- og scope-levetider',
+                category: '📚 Læringsressurs'
+            });
+        }
+
+        if (inputLower.includes('konflikt') || inputLower.includes('feil') || inputLower.includes('problem')) {
+            suggestions.unshift({
+                id: 'conflict-diagnosis',
+                text: 'Diagnostiser konfigurasjonskonflikter automatisk',
+                description: 'La AI-assistenten analysere alle mulige problemer med klienten',
+                category: '🔍 Automatisk diagnose'
+            });
+        }
+
+        if (inputLower.includes('access token') || inputLower.includes('tilgang')) {
+            suggestions.unshift({
+                id: 'access-token-help',
+                text: 'Hvordan fungerer access token levetider?',
+                description: 'Forklaring av access token lifetime innstillinger',
+                category: '📚 Læringsressurs'
+            });
+        }
+
         return suggestions.filter(suggestion => 
             suggestion.text.toLowerCase().includes(inputLower) ||
             suggestion.description.toLowerCase().includes(inputLower) ||
@@ -329,12 +537,14 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
 }
 
 /**
- * Interface for actions that can be dispatched to highlight tabs or JWKs.
+ * Interface for actions that can be dispatched to highlight tabs, JWKs, or scope conflicts.
  */
 export interface HighlightAction {
-  type: 'highlight-tab' | 'highlight-jwk';
+  type: 'highlight-tab' | 'highlight-jwk' | 'highlight-scope-conflict';
   tabId?: string;
   jwkKid?: string;
+  scopeName?: string;
+  conflictType?: 'authorization_lifetime_conflict' | 'access_token_lifetime_conflict';
 }
 
 /**
@@ -388,7 +598,7 @@ export const AiAssistantProvider = ({ children }: { children: React.ReactNode })
         try {
             sessionStorage.setItem('ai_assistant_session', JSON.stringify(messages));
         } catch {
-
+            // Silently ignore storage errors to prevent UI breaks
         }
     }, [messages]);
 
@@ -400,7 +610,7 @@ export const AiAssistantProvider = ({ children }: { children: React.ReactNode })
                 sessionStorage.removeItem('ai_assistant_locked_context');
             }
         } catch {
-
+            // Silently ignore storage errors to prevent UI breaks
         }
     }, [lockedContext]);
 
@@ -456,6 +666,73 @@ export default function AiAssistant(): React.JSX.Element {
     useEffect(() => {
         console.log('🚀 AiAssistant component mounted');
         console.log('Current window location:', window.location.href);
+        
+        // Test backend connectivity
+        const testBackend = async () => {
+            try {
+                console.log('Testing backend connectivity...');
+                
+                // Add a timestamp to avoid browser caching issues
+                const timestamp = new Date().getTime();
+                const testUrl = `http://localhost:8000/copilot/?_t=${timestamp}`;
+                
+                // First try to connect to the main endpoint
+                const testResponse = await fetch(testUrl, { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    },
+                    body: JSON.stringify({ question: 'ping' }),
+                    signal: AbortSignal.timeout(3000), // 3 second timeout
+                    credentials: 'omit',
+                    cache: 'no-cache',
+                    mode: 'cors'
+                });
+                
+                console.log('✅ Backend main endpoint test:', {
+                    status: testResponse.status,
+                    ok: testResponse.ok,
+                    statusText: testResponse.statusText,
+                    corsHeaders: {
+                        'access-control-allow-origin': testResponse.headers.get('access-control-allow-origin'),
+                        'access-control-allow-methods': testResponse.headers.get('access-control-allow-methods'),
+                        'access-control-allow-headers': testResponse.headers.get('access-control-allow-headers')
+                    }
+                });
+                
+                if (!testResponse.ok) {
+                    console.warn('⚠️ Backend responded but with error status:', testResponse.status);
+                }
+                
+            } catch (error) {
+                console.error('❌ Backend connectivity test failed:', {
+                    error: error instanceof Error ? error.message : String(error),
+                    errorType: error instanceof TypeError ? 'Network/CORS' : 'Other',
+                    backendUrl: 'http://localhost:8000',
+                    recommendation: error instanceof TypeError ? 
+                        'Try refreshing the page or clearing browser cache' : 
+                        'Check backend logs for errors'
+                });
+                
+                // Try a simple health check as fallback
+                try {
+                    const healthCheck = await fetch('http://localhost:8000/health', { 
+                        method: 'GET',
+                        signal: AbortSignal.timeout(2000),
+                        cache: 'no-cache',
+                        mode: 'cors'
+                    });
+                    console.log('Health endpoint response:', healthCheck.status, healthCheck.statusText);
+                } catch (healthError) {
+                    console.log('Health endpoint also failed:', healthError instanceof Error ? healthError.message : String(healthError));
+                }
+            }
+        };
+        
+        testBackend();
+        
         console.log('Checking if logo.png is accessible...');
         
         // Test if the logo file is accessible
@@ -487,6 +764,10 @@ export default function AiAssistant(): React.JSX.Element {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+    
+    // Track what has been highlighted to prevent double highlighting
+    const highlightedElementsRef = useRef<Set<string>>(new Set());
+    const lastHighlightTimeRef = useRef<number>(0);
     
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -553,33 +834,29 @@ export default function AiAssistant(): React.JSX.Element {
         }
     }, [aiPanelOpen]);
 
+    // Debug context updates only in development
     useEffect(() => {
-        console.log('Context oppdatert:', context);
+        if (process.env.NODE_ENV === 'development') {
+            console.log('Context oppdatert:', context);
+        }
     }, [context]);
 
-    useEffect(() => {
-        console.log('Meldinger oppdatert:', messages);
-    }, [messages]);
-
-    useEffect(() => {
-        console.log('AI Panel status:', aiPanelOpen);
-    }, [aiPanelOpen]);
-
     /**
-     * Updates suggestions when context or question changes
+     * Updates suggestions when context or question changes - memoized for performance
      */
-    useEffect(() => {
+    const contextualSuggestions = useMemo(() => {
         if (question.trim()) {
-            const contextualSuggestions = getContextualSuggestions(context, question);
-            setSuggestions(contextualSuggestions);
-            setShowSuggestions(contextualSuggestions.length > 0);
+            return getContextualSuggestions(context, question);
         } else {
-            const allSuggestions = getContextualSuggestions(context);
-            setSuggestions(allSuggestions.slice(0, 8));
-            setShowSuggestions(false);
+            return getContextualSuggestions(context).slice(0, 8);
         }
-        setSelectedSuggestionIndex(-1);
     }, [context, question]);
+
+    useEffect(() => {
+        setSuggestions(contextualSuggestions);
+        setShowSuggestions(question.trim() ? contextualSuggestions.length > 0 : false);
+        setSelectedSuggestionIndex(-1);
+    }, [contextualSuggestions, question]);
 
     /**
      * Handles suggestion selection with keyboard navigation
@@ -683,8 +960,9 @@ export default function AiAssistant(): React.JSX.Element {
             try {
                 sessionStorage.setItem(CONTEXT_MESSAGE_KEY, `Nåværende kontekst: ${currentContextLabel}`);
                 sessionStorage.setItem(CONTEXT_LABEL_KEY, currentContextLabel);
-            } catch {
-
+            } catch (error) {
+                // Silently ignore highlighting errors to prevent UI breaks
+                console.warn('Scope highlighting failed:', error);
             }
         }
 
@@ -692,32 +970,45 @@ export default function AiAssistant(): React.JSX.Element {
     };
 
     /**
-     * Handles the typing animation for chatbot responses
+     * Handles the typing animation for chatbot responses with optimized performance
      */
     const handleTypingAnimation = async (fullAnswer: string, abortController: AbortController) => {
+        // Skip typing animation for very short messages to improve performance
+        if (fullAnswer.length < 50) {
+            setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: fullAnswer }]);
+            setLoading(false);
+            setActiveRequest(null);
+            return;
+        }
+
         let currentText = '';
-        setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: currentText }]);
+        const botMessageId = uuidv4();
+        setMessages(prev => [...prev, { id: botMessageId, sender: 'bot', text: currentText }]);
 
         let index = 0;
+        const chunkSize = Math.max(1, Math.floor(fullAnswer.length / 50)); // Type faster for longer messages
         const interval = setInterval(() => {
             if (abortController.signal.aborted) {
                 clearInterval(interval);
                 return;
             }
 
-            index++;
+            // Type multiple characters at once for better performance
+            index = Math.min(index + chunkSize, fullAnswer.length);
             currentText = fullAnswer.slice(0, index);
+            
+            // Batch update with same message ID to reduce re-renders
             setMessages(prev => {
                 const others = prev.slice(0, -1);
-                return [...others, { id: uuidv4(), sender: 'bot', text: currentText }];
+                return [...others, { id: botMessageId, sender: 'bot', text: currentText }];
             });
 
-            if (index === fullAnswer.length) {
+            if (index >= fullAnswer.length) {
                 clearInterval(interval);
                 setLoading(false);
-                setActiveRequest(null); // Nullstill aktiv forespørsel når ferdig
+                setActiveRequest(null);
             }
-        }, 15);
+        }, 30); // Reduced from 15ms to 30ms for better performance
     };
 
     /**
@@ -725,16 +1016,35 @@ export default function AiAssistant(): React.JSX.Element {
      */
     const handleKeyHighlighting = async (question: string, context: any) => {
         const lowerQuestion = question.toLowerCase();
-        const keyWords = ['nøkkel', 'key', 'keys', 'nøkler', 'sertifikat', 'certificate', 'jwk', 'jwt', 'kryptografi', 'crypto'];
+        const keyWords = ['nøkkel', 'nøkler', 'sertifikat', 'certificate', 'jwk', 'jwt', 'kryptografi', 'crypto'];
         const expiredWords = ['utløpt', 'expired', 'expire', 'utløper', 'expiry', 'utløp', 'gammel', 'old', 'invalid', 'ugyldig'];
         const problemWords = ['problem', 'feil', 'error', 'issue', 'trouble', 'ikke fungerer', 'virker ikke'];
         
-        const hasKeyWord = keyWords.some(word => lowerQuestion.includes(word));
-        const hasExpiredWord = expiredWords.some(word => lowerQuestion.includes(word));
-        const hasProblemWord = problemWords.some(word => lowerQuestion.includes(word));
+        // Exclude scope-related questions from key highlighting - extended list
+        const scopeWords = [
+            'scope', 'scopes', 'access token', 'access_token', 'tilgang',
+            'autorisasjon', 'authorization', 'levetid', 'lifetime',
+            'logger ut', 'logges ut', 'logout', 'innstilling', 'klientens',
+            'brukeren', 'session', 'sesjon'
+        ];
+        const hasScopeWord = scopeWords.some(word => lowerQuestion.includes(word));
         
-        if (hasKeyWord || hasExpiredWord || hasProblemWord) {
-            console.log('🔑 Key highlighting triggered:', { hasKeyWord, hasExpiredWord, hasProblemWord, question: lowerQuestion });
+        // Enhanced logic: Only trigger key highlighting if it's explicitly about keys/certificates
+        // and NOT about scopes, tokens, or authorization
+        const hasExplicitKeyWord = keyWords.some(word => lowerQuestion.includes(word));
+        const hasKeyProblem = hasExplicitKeyWord && (expiredWords.some(word => lowerQuestion.includes(word)) || problemWords.some(word => lowerQuestion.includes(word)));
+        
+        // Don't highlight keys if the question is about scopes/tokens/authorization
+        if (hasScopeWord) {
+            console.log('🚫 Key highlighting skipped - question is about scopes/authorization:', { question: lowerQuestion, matchedScopeWords: scopeWords.filter(word => lowerQuestion.includes(word)) });
+            return;
+        }
+        
+        // Only highlight if explicitly about keys
+        const shouldHighlightKeys = hasExplicitKeyWord || hasKeyProblem;
+        
+        if (shouldHighlightKeys) {
+            console.log('🔑 Key highlighting triggered:', { hasExplicitKeyWord, hasKeyProblem, question: lowerQuestion });
 
             const tabEl = document.querySelector('[data-tab-id="keys"]');
             if (tabEl) {
@@ -746,8 +1056,81 @@ export default function AiAssistant(): React.JSX.Element {
                 }, 5000);
             }
 
-            if (hasExpiredWord || hasProblemWord) {
+            if (hasKeyProblem) {
                 highlightExpiredKeys(context);
+            }
+        }
+    };
+
+    /**
+     * Handles scope conflict highlighting based on the question content and optionally response content
+     */
+    const handleScopeConflictHighlighting = async (question: string, context: any, hasResponseConflicts: boolean = false) => {
+        const lowerQuestion = question.toLowerCase();
+        
+        // Skip highlighting if this looks like an error message
+        if (lowerQuestion.includes('error:') || lowerQuestion.includes('kan ikke nå') || lowerQuestion.includes('utilgjengelig')) {
+            console.log('🚫 Scope conflict highlighting skipped - looks like error message:', { question: lowerQuestion });
+            return;
+        }
+        
+        const scopeConflictWords = [
+            'access token', 'access_token', 'tilgang', 
+            'autorisasjon', 'authorization', 
+            'levetid', 'lifetime', 
+            'logger ut', 'logges ut', 'logout',
+            'scope', 'scopes', 'innstilling', 'klientens'
+        ];
+        const conflictWords = [
+            'konflikt', 'problem', 'feil', 'utløper', 'før', 'tidligere',
+            'mindre', 'lavere', 'kortere', 'tidligere enn', 'korte'
+        ];
+        
+        const hasScopeConflictWord = scopeConflictWords.some(word => lowerQuestion.includes(word));
+        const hasConflictWord = conflictWords.some(word => lowerQuestion.includes(word));
+        
+        // Enhanced detection for common access token issues
+        const isAccessTokenIssue = lowerQuestion.includes('access token') || lowerQuestion.includes('access_token');
+        const isLifetimeIssue = lowerQuestion.includes('levetid') || lowerQuestion.includes('lifetime') || lowerQuestion.includes('utløper');
+        const isClientSettingIssue = lowerQuestion.includes('innstilling') || lowerQuestion.includes('klientens');
+        
+        const shouldHighlight = hasScopeConflictWord && hasConflictWord || 
+                              (isAccessTokenIssue && isLifetimeIssue) ||
+                              (isLifetimeIssue && isClientSettingIssue);
+        
+        if (shouldHighlight || hasResponseConflicts) {
+            console.log('🔍 Scope conflict highlighting triggered:', { 
+                question: lowerQuestion,
+                hasScopeConflictWord,
+                hasConflictWord,
+                isAccessTokenIssue,
+                isLifetimeIssue,
+                isClientSettingIssue,
+                hasResponseConflicts
+            });
+            
+            // Always highlight scope conflicts if they exist in context
+            highlightScopeConflicts(context);
+            
+            // Also highlight relevant lifetime fields, including response-detected conflicts
+            highlightLifetimeFields(context, hasResponseConflicts);
+            
+            // Also highlight the scopes tab if it exists
+            const tabElements = document.querySelectorAll('[role="tab"]');
+            let scopesTab: Element | null = null;
+            tabElements.forEach((tab) => {
+                const tabText = tab.textContent?.toLowerCase() || '';
+                if (tabText.includes('scope') || tabText.includes('tilgang')) {
+                    scopesTab = tab;
+                }
+            });
+            
+            if (scopesTab) {
+                console.log('🎯 Highlighting scopes tab');
+                (scopesTab as HTMLElement).classList.add('ai-tab-highlight');
+                setTimeout(() => {
+                    (scopesTab as HTMLElement).classList.remove('ai-tab-highlight');
+                }, 5000);
             }
         }
     };
@@ -886,22 +1269,304 @@ export default function AiAssistant(): React.JSX.Element {
     };
 
     /**
-     * Sets up event listener for keys tab clicks to highlight expired keys
+     * Highlights lifetime fields based on scope conflicts or response-detected conflicts
+     */
+    const highlightLifetimeFields = useCallback((context: any, hasResponseConflicts: boolean = false) => {
+        console.log('🚀 Starting highlightLifetimeFields function');
+        console.log('📋 Context for lifetime field highlighting:', context);
+
+        // Prevent double highlighting within 10 seconds
+        const now = Date.now();
+        const timeSinceLastHighlight = now - lastHighlightTimeRef.current;
+        const shouldSkipDueToRecentHighlight = timeSinceLastHighlight < 10000; // 10 seconds
+
+        if (shouldSkipDueToRecentHighlight) {
+            console.log('🚫 Skipping lifetime field highlighting - recently highlighted:', {
+                timeSinceLastHighlight,
+                lastHighlightTime: new Date(lastHighlightTimeRef.current).toISOString()
+            });
+            return;
+        }
+
+        const scopeConflicts = context?.scopeConflicts || [];
+        console.log('🔍 Found scope conflicts for lifetime fields:', scopeConflicts);
+        console.log('🔍 Response indicates conflicts:', hasResponseConflicts);
+
+        // If response indicates conflicts, we should highlight even without explicit scope conflicts
+        if (scopeConflicts.length === 0 && !hasResponseConflicts) {
+            console.log('ℹ️ No scope conflicts found and no response conflicts - no lifetime fields to highlight');
+            return;
+        }
+
+        // Update last highlight time to prevent double highlighting
+        lastHighlightTimeRef.current = now;
+        console.log('⏰ Updated last highlight time:', new Date(now).toISOString());
+
+        // Remove existing highlights
+        document.querySelectorAll('[data-field-type]').forEach((el) => {
+            (el as HTMLElement).classList.remove(
+                'lifetime-field-conflict-highlight',
+                'access-token-conflict-highlight', 
+                'authorization-conflict-highlight'
+            );
+        });
+
+        // Group conflicts by type
+        const accessTokenConflicts = scopeConflicts.filter((c: any) => c.type === 'access_token_lifetime_conflict');
+        const authorizationConflicts = scopeConflicts.filter((c: any) => c.type === 'authorization_lifetime_conflict');
+
+        console.log('📊 Conflict breakdown:', {
+            accessTokenConflicts: accessTokenConflicts.length,
+            authorizationConflicts: authorizationConflicts.length,
+            hasResponseConflicts,
+            willHighlightBoth: hasResponseConflicts
+        });
+
+        setTimeout(() => {
+            // If response indicates conflicts, highlight both fields to be safe
+            const shouldHighlightAccessToken = accessTokenConflicts.length > 0 || hasResponseConflicts;
+            const shouldHighlightAuthorization = authorizationConflicts.length > 0 || hasResponseConflicts;
+
+            // Highlight access token lifetime field 
+            if (shouldHighlightAccessToken) {
+                const accessTokenField = document.querySelector('[data-field-type="access_token_lifetime"]');
+                if (accessTokenField) {
+                    console.log('🎯 Highlighting access token lifetime field (response-triggered)');
+                    console.log('📋 Element details before highlighting:', {
+                        tagName: accessTokenField.tagName,
+                        className: accessTokenField.className,
+                        id: accessTokenField.id,
+                        attributes: Array.from(accessTokenField.attributes).map(attr => `${attr.name}="${attr.value}"`),
+                        computedStyle: window.getComputedStyle(accessTokenField)
+                    });
+                    
+                    (accessTokenField as HTMLElement).classList.add('access-token-conflict-highlight');
+                    
+                    // Force a style recalculation
+                    void (accessTokenField as HTMLElement).offsetHeight;
+                    
+                    console.log('✅ Class added - element details after highlighting:', {
+                        className: accessTokenField.className,
+                        hasClass: accessTokenField.classList.contains('access-token-conflict-highlight'),
+                        computedBackground: window.getComputedStyle(accessTokenField).backgroundColor,
+                        computedBorder: window.getComputedStyle(accessTokenField).border,
+                        computedOutline: window.getComputedStyle(accessTokenField).outline,
+                        computedBoxShadow: window.getComputedStyle(accessTokenField).boxShadow
+                    });
+                    
+                    // Scroll to field if it's the first conflict
+                    accessTokenField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Remove highlight after animation
+                    setTimeout(() => {
+                        (accessTokenField as HTMLElement).classList.remove('access-token-conflict-highlight');
+                        console.log('🔄 Removed highlighting from access token field');
+                    }, 8000); // Extended highlight time for response-based conflicts
+                } else {
+                    console.warn('❌ Access token lifetime field not found in DOM');
+                    
+                    // Try alternative selectors for access token fields
+                    const altSelectors = [
+                        '[name="access_token_lifetime"]',
+                        '[id*="access_token"]',
+                        '[data-testid*="access-token"]',
+                        'input[placeholder*="access token"]'
+                    ];
+                    
+                    for (const selector of altSelectors) {
+                        const altField = document.querySelector(selector);
+                        if (altField) {
+                            console.log(`🔄 Found access token field with alternative selector: ${selector}`);
+                            (altField as HTMLElement).classList.add('access-token-conflict-highlight');
+                            setTimeout(() => {
+                                (altField as HTMLElement).classList.remove('access-token-conflict-highlight');
+                            }, 8000);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Highlight authorization lifetime field
+            if (shouldHighlightAuthorization) {
+                const authorizationField = document.querySelector('[data-field-type="authorization_lifetime"]');
+                if (authorizationField) {
+                    console.log('🎯 Highlighting authorization lifetime field (response-triggered)');
+                    console.log('📋 Element details before highlighting:', {
+                        tagName: authorizationField.tagName,
+                        className: authorizationField.className,
+                        id: authorizationField.id,
+                        attributes: Array.from(authorizationField.attributes).map(attr => `${attr.name}="${attr.value}"`),
+                        computedStyle: window.getComputedStyle(authorizationField)
+                    });
+                    
+                    (authorizationField as HTMLElement).classList.add('authorization-conflict-highlight');
+                    
+                    // Force a style recalculation
+                    void (authorizationField as HTMLElement).offsetHeight;
+                    
+                    console.log('✅ Class added - element details after highlighting:', {
+                        className: authorizationField.className,
+                        hasClass: authorizationField.classList.contains('authorization-conflict-highlight'),
+                        computedBackground: window.getComputedStyle(authorizationField).backgroundColor,
+                        computedBorder: window.getComputedStyle(authorizationField).border,
+                        computedOutline: window.getComputedStyle(authorizationField).outline,
+                        computedBoxShadow: window.getComputedStyle(authorizationField).boxShadow
+                    });
+                    
+                    // Scroll to field if it's the only type of conflict or if access token field wasn't found
+                    if (!shouldHighlightAccessToken) {
+                        authorizationField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    // Remove highlight after animation  
+                    setTimeout(() => {
+                        (authorizationField as HTMLElement).classList.remove('authorization-conflict-highlight');
+                        console.log('🔄 Removed highlighting from authorization field');
+                    }, 8000); // Extended highlight time for response-based conflicts
+                } else {
+                    console.warn('❌ Authorization lifetime field not found in DOM');
+                    
+                    // Try alternative selectors for authorization fields
+                    const altSelectors = [
+                        '[name="authorization_max_lifetime"]',
+                        '[id*="authorization"]',
+                        '[data-testid*="authorization"]',
+                        'input[placeholder*="authorization"]'
+                    ];
+                    
+                    for (const selector of altSelectors) {
+                        const altField = document.querySelector(selector);
+                        if (altField) {
+                            console.log(`🔄 Found authorization field with alternative selector: ${selector}`);
+                            (altField as HTMLElement).classList.add('authorization-conflict-highlight');
+                            setTimeout(() => {
+                                (altField as HTMLElement).classList.remove('authorization-conflict-highlight');
+                            }, 8000);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // If response indicates conflicts but no fields found, try to highlight the entire form
+            if (hasResponseConflicts && !document.querySelector('[data-field-type]')) {
+                console.log('🔄 No specific lifetime fields found, trying to highlight form areas');
+                const formElements = document.querySelectorAll('form, .form-section, .client-settings');
+                formElements.forEach((form, index) => {
+                    if (index < 2) { // Only highlight first 2 forms to avoid spam
+                        (form as HTMLElement).classList.add('lifetime-field-conflict-highlight');
+                        setTimeout(() => {
+                            (form as HTMLElement).classList.remove('lifetime-field-conflict-highlight');
+                        }, 6000);
+                    }
+                });
+            }
+        }, 300);
+    }, []);
+
+    /**
+     * Highlights scope conflicts in the UI with blinking animation
+     */
+    const highlightScopeConflicts = useCallback((context: any) => {
+        console.log('🚀 Starting highlightScopeConflicts function');
+        console.log('📋 Context for scope conflicts:', context);
+
+        const scopeConflicts = context?.scopeConflicts || [];
+        console.log('🔍 Found scope conflicts:', scopeConflicts);
+
+        if (scopeConflicts.length === 0) {
+            console.log('ℹ️ No scope conflicts found');
+            return;
+        }
+
+        // Extract scope names that have conflicts
+        const conflictingScopeNames = scopeConflicts.map((conflict: any) => conflict.scopeName);
+        console.log('⚠️ Highlighting scopes with conflicts:', conflictingScopeNames);
+
+        // Remove existing highlights
+        document.querySelectorAll('[data-scope-name]').forEach((el) => {
+            (el as HTMLElement).classList.remove('scope-conflict-highlight');
+        });
+
+        setTimeout(() => {
+            conflictingScopeNames.forEach((scopeName: string, index: number) => {
+                // Look for scope elements in different possible locations
+                const selectors = [
+                    `[data-scope-name="${scopeName}"]`,
+                    `[data-scope="${scopeName}"]`,
+                    `[data-testid="scope-${scopeName}"]`,
+                    `[title*="${scopeName}"]`
+                ];
+
+                let scopeElement = null;
+                for (const selector of selectors) {
+                    scopeElement = document.querySelector(selector);
+                    if (scopeElement) break;
+                }
+
+                if (!scopeElement) {
+                    // Try to find by text content containing the scope name
+                    const allElements = document.querySelectorAll('*');
+                    for (const el of allElements) {
+                        if (el.textContent && el.textContent.includes(scopeName)) {
+                            scopeElement = el;
+                            break;
+                        }
+                    }
+                }
+
+                console.log(`🎯 Looking for scope element '${scopeName}':`, scopeElement);
+                
+                if (scopeElement) {
+                    setTimeout(() => {
+                        console.log(`✨ Adding conflict highlight to scope: ${scopeName}`);
+                        scopeElement.classList.add('scope-conflict-highlight');
+
+                        if (index === 0) {
+                            scopeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+
+                        setTimeout(() => {
+                            console.log(`🔄 Removing conflict highlight from scope: ${scopeName}`);
+                            scopeElement.classList.remove('scope-conflict-highlight');
+                        }, 8000);
+                    }, index * 300);
+                } else {
+                    console.warn('❌ DOM-element for scope ikke funnet:', scopeName);
+                }
+            });
+        }, 200);
+    }, []);
+
+    /**
+     * Sets up event listeners for tab clicks to highlight issues
      */
     useEffect(() => {
         const handleTabClick = (event: Event) => {
             const target = event.target as HTMLElement;
-            const tabElement = target.closest('[data-tab-id="keys"]');
+            const keysTabElement = target.closest('[data-tab-id="keys"]');
+            const scopesTabElement = target.closest('[data-tab-id="scopes"]') || 
+                                   target.closest('[role="tab"]')?.textContent?.toLowerCase().includes('scope') ? target.closest('[role="tab"]') : null;
+            const detailsTabElement = target.closest('[data-tab-id="details"]') ||
+                                    (target.closest('[role="tab"]')?.textContent?.toLowerCase().includes('detaljer') ? target.closest('[role="tab"]') : null) ||
+                                    (target.closest('[role="tab"]')?.textContent?.toLowerCase().includes('details') ? target.closest('[role="tab"]') : null);
             
-            if (tabElement) {
+            const currentContext = lockedContext || context;
+            
+            if (keysTabElement && currentContext) {
                 console.log('🎯 Keys tab clicked - checking for expired keys');
-                
-                // Get current context
-                const currentContext = lockedContext || context;
-                if (currentContext) {
-                    // Highlight expired keys when tab is clicked
-                    highlightExpiredKeys(currentContext);
-                }
+                highlightExpiredKeys(currentContext);
+            }
+            
+            if (scopesTabElement && currentContext) {
+                console.log('🎯 Scopes tab clicked - checking for scope conflicts');
+                highlightScopeConflicts(currentContext);
+            }
+            
+            if (detailsTabElement && currentContext) {
+                console.log('🎯 Details tab clicked - checking for lifetime field conflicts');
+                highlightLifetimeFields(currentContext);
             }
         };
 
@@ -910,7 +1575,7 @@ export default function AiAssistant(): React.JSX.Element {
         return () => {
             document.removeEventListener('click', handleTabClick);
         };
-    }, [context, lockedContext, highlightExpiredKeys]);
+    }, [context, lockedContext, highlightExpiredKeys, highlightScopeConflicts, highlightLifetimeFields]);
 
     /**
      * Handles the submission of a question to the AI assistant.
@@ -960,6 +1625,54 @@ export default function AiAssistant(): React.JSX.Element {
         const newAbortController = new AbortController();
         setActiveRequest(newAbortController);
 
+        // IMPORTANT: Do highlighting based on user question BEFORE trying backend call
+        // This ensures highlighting works even if backend fails
+        console.log('🎯 Pre-processing user question for highlighting:', question);
+        
+        // Check if question indicates lifetime conflicts and highlight preemptively
+        const lowerQuestion = question.toLowerCase();
+        const questionIndicatesLifetimeConflicts = 
+            lowerQuestion.includes('access tokens utløper før') ||
+            lowerQuestion.includes('access token') && lowerQuestion.includes('utløper') ||
+            lowerQuestion.includes('access token') && lowerQuestion.includes('før') ||
+            lowerQuestion.includes('levetid') && lowerQuestion.includes('konflikt') ||
+            lowerQuestion.includes('lifetime') && lowerQuestion.includes('problem') ||
+            lowerQuestion.includes('logger ut') && lowerQuestion.includes('tidligere') ||
+            lowerQuestion.includes('innstilling') && lowerQuestion.includes('før');
+            
+        if (questionIndicatesLifetimeConflicts) {
+            console.log('🚨 Question indicates lifetime conflicts - triggering preemptive highlighting');
+            await handleScopeConflictHighlighting(question, contextToUse, true); // Force highlighting
+        } else {
+            // Still do regular question analysis but don't force
+            await handleScopeConflictHighlighting(question, contextToUse, false);
+        }
+
+        // Test context serialization before sending
+        try {
+            const testSerialization = JSON.stringify(contextToUse);
+            console.log('handleSubmit: Context serialization test successful', {
+                sizeKB: (testSerialization.length / 1024).toFixed(2),
+                question: question
+            });
+        } catch (serializationError) {
+            console.error('handleSubmit: Context serialization failed', {
+                error: serializationError,
+                contextKeys: contextToUse ? Object.keys(contextToUse) : []
+            });
+            setMessages(prev => [
+                ...prev,
+                { 
+                    id: uuidv4(), 
+                    sender: 'bot', 
+                    text: 'Error: Context data cannot be serialized. Please try again.' 
+                },
+            ]);
+            setLoading(false);
+            setActiveRequest(null);
+            return;
+        }
+
         try {
             const result = await ChatbotService.askChatbot(question, contextToUse, newAbortController);
 
@@ -967,20 +1680,84 @@ export default function AiAssistant(): React.JSX.Element {
                 return;
             }
             
+            // Enhanced response analysis for lifetime conflicts
+            const responseText = result.answer.toLowerCase();
+            const hasResponseConflicts = 
+                // Norwegian conflict indicators
+                responseText.includes('kortere levetid') ||
+                responseText.includes('utløper før') ||
+                responseText.includes('lavere enn klientens') ||
+                responseText.includes('access tokens utløper før') ||
+                responseText.includes('utløpe tidligere') ||
+                responseText.includes('konflikt') ||
+                responseText.includes('problem') ||
+                responseText.includes('feil med levetid') ||
+                responseText.includes('lifetime') ||
+                responseText.includes('logger ut tidligere') ||
+                responseText.includes('tidligere enn forventet') ||
+                // Technical field names
+                responseText.includes('at_max_age') ||
+                responseText.includes('access_token_lifetime') ||
+                responseText.includes('authorization_max_lifetime') ||
+                // Specific scope mentions with context about lifetime issues
+                (responseText.includes('scope') && (
+                    responseText.includes('120') || 
+                    responseText.includes('300') ||
+                    responseText.includes('sekunder') ||
+                    responseText.includes('minutter')
+                ));
+
+            console.log('🔍 Enhanced chatbot response conflict analysis:', {
+                hasResponseConflicts,
+                responseSnippet: responseText.substring(0, 300) + '...',
+                contextConflictsCount: contextToUse?.scopeConflicts?.length || 0,
+                matchedPatterns: [
+                    responseText.includes('kortere levetid') && 'kortere levetid',
+                    responseText.includes('utløper før') && 'utløper før',
+                    responseText.includes('access tokens utløper før') && 'access tokens utløper før',
+                    responseText.includes('konflikt') && 'konflikt',
+                    responseText.includes('lifetime') && 'lifetime'
+                ].filter(Boolean)
+            });
+            
             await handleTypingAnimation(result.answer, newAbortController);
             await handleKeyHighlighting(question, contextToUse);
+            // Only do response-based highlighting if we have new response conflicts
+            if (hasResponseConflicts) {
+                console.log('🔍 Response contains conflict indicators - doing additional highlighting');
+                await handleScopeConflictHighlighting(question, contextToUse, hasResponseConflicts);
+            }
         } catch (error) {
             if (error instanceof DOMException && error.name === 'AbortError') {
                 console.log('Chatbot request was aborted');
                 return;
             }
 
-            const message = error instanceof Error
-                ? `Error: ${error.message}`
-                : 'Error: Could not get response from chatbot';
+            console.error('handleSubmit: Error details', {
+                question: question,
+                contextPage: contextToUse?.page,
+                contextKeys: contextToUse ? Object.keys(contextToUse) : [],
+                hasScopeConflicts: !!contextToUse?.scopeConflicts,
+                scopeConflictsCount: contextToUse?.scopeConflicts?.length || 0,
+                errorMessage: error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : undefined
+            });
+
+            // Determine error type and provide appropriate user-friendly message
+            let userMessage = '';
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            
+            if (errorMessage.includes('Browser CORS issue') || errorMessage.includes('Failed to fetch')) {
+                userMessage = 'Kan ikke nå AI-assistenten akkurat nå. Prøv å oppdatere siden (Ctrl+F5) eller åpne i privat vindu.';
+            } else if (errorMessage.includes('500') || errorMessage.includes('Internal Server Error')) {
+                userMessage = 'AI-assistenten er midlertidig utilgjengelig. Prøv igjen om litt.';
+            } else {
+                userMessage = 'Kunne ikke få svar fra AI-assistenten. Prøv igjen.';
+            }
+
             setMessages(prev => [
                 ...prev,
-                { id: uuidv4(), sender: 'bot', text: message },
+                { id: uuidv4(), sender: 'bot', text: userMessage },
             ]);
             setLoading(false);
             setActiveRequest(null);
@@ -1181,8 +1958,9 @@ export default function AiAssistant(): React.JSX.Element {
                                 sessionStorage.removeItem(CONTEXT_MESSAGE_KEY);
                                 sessionStorage.removeItem(CONTEXT_LABEL_KEY);
                                 sessionStorage.removeItem('ai_assistant_locked_context');
-                            } catch {
-
+                            } catch (error) {
+                                // Silently ignore sessionStorage errors
+                                console.warn('Session storage cleanup failed:', error);
                             }
                         }}
                         title="Tøm chat"

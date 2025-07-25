@@ -130,6 +130,7 @@ const MaskinportenClient = (props: {
                         name={fields.access_token_lifetime.name}
                         defaultValue={client?.access_token_lifetime || 120}
                         error={t(fields.access_token_lifetime.errors || '')}
+                        data-field-type="access_token_lifetime"
                     />
                 </div>
             </Card>
