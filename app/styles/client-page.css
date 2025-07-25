@@ -274,41 +274,49 @@
 }
 
 .chat-message {
-  max-width: 75%;
-  margin-bottom: 0.75rem;
-  padding: 0.1rem 0.6rem;
-  border-radius: 0.5rem;
+  max-width: 90%;
+  margin-bottom: 1rem;
+  padding: 0.05rem 1rem;
+  border-radius: 1rem;
   font-size: 0.95rem;
   line-height: 1.4;
   word-break: break-word;
 }
 
 .chat-message.bot {
-  background-color: #f9fafb;
-  color: #374151;
+  color: #181a1d;
   align-self: flex-start;
+  margin-left: 0;
+  border-bottom-left-radius: 0.5rem;
 }
 
 .chat-message.user {
-  background-color: #3b82f6;
+  background-color: #ef4444;
   color: white;
   align-self: flex-end;
-  margin-right: 1rem;
+  margin-right: 0;
+  border-bottom-right-radius: 0.5rem;
 }
 
 .typing-indicator {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  height: 1rem;
-  padding: 0.2rem 0;
+  height: 1.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: none;
+  border-radius: 1rem;
+  border-bottom-left-radius: 0.5rem;
+  align-self: flex-start;
+  max-width: 90%;
 }
 
 .typing-indicator span {
   display: block;
-  width: 0.4rem;
-  height: 0.4rem;
-  background-color: #9ca3af;
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: #ef4444;
   border-radius: 50%;
   animation: typing-bounce 1.2s infinite ease-in-out;
 }
