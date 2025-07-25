@@ -452,6 +452,27 @@ export const useAiAssistantContext = () => {
 export default function AiAssistant(): React.JSX.Element {
     const { context, lockedContext, setLockedContext, messages, setMessages, loading, setLoading, activeRequest, setActiveRequest } = useAiAssistantContext();
 
+    // Debug logging for component mount
+    useEffect(() => {
+        console.log('🚀 AiAssistant component mounted');
+        console.log('Current window location:', window.location.href);
+        console.log('Checking if logo.png is accessible...');
+        
+        // Test if the logo file is accessible
+        fetch('/logo.png')
+            .then(response => {
+                console.log('Logo fetch response:', response.status, response.statusText);
+                console.log('Response headers:', [...response.headers.entries()]);
+                return response.blob();
+            })
+            .then(blob => {
+                console.log('Logo blob:', blob.type, blob.size + ' bytes');
+            })
+            .catch(error => {
+                console.log('Logo fetch error:', error);
+            });
+    }, []);
+
     const PANEL_STATE_KEY = 'chatbot_panel_open';
     const CONTEXT_MESSAGE_KEY = 'chatbot_last_context_message';
     const CONTEXT_LABEL_KEY = 'chatbot_last_context_label';
@@ -983,7 +1004,36 @@ export default function AiAssistant(): React.JSX.Element {
                 className={`ai-button ${aiPanelOpen ? 'move-left' : ''}`}
                 title="Åpne AI-hjelp"
             >
-          DesKI
+                <img 
+                    src="/logo.png" 
+                    alt="DesKI Logo" 
+                    className="ai-button-logo"
+                    onLoad={(e) => {
+                        console.log('✅ Logo loaded successfully!');
+                        console.log('Image element:', e.target);
+                        console.log('Image src:', (e.target as HTMLImageElement).src);
+                        console.log('Image dimensions:', {
+                            width: (e.target as HTMLImageElement).width,
+                            height: (e.target as HTMLImageElement).height,
+                            naturalWidth: (e.target as HTMLImageElement).naturalWidth,
+                            naturalHeight: (e.target as HTMLImageElement).naturalHeight
+                        });
+                    }}
+                    onError={(e) => {
+                        console.log('❌ Logo failed to load!');
+                        console.log('Error target:', e.target);
+                        console.log('Attempted src:', (e.target as HTMLImageElement).src);
+                        console.log('Error event:', e);
+                        
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const button = target.parentElement;
+                        if (button) {
+                            console.log('Setting fallback text to button');
+                            button.innerHTML = '<span style="color: white; font-size: 14px;">DesKI</span>';
+                        }
+                    }}
+                />
             </button>
 
             <div className={`ai-panel ${aiPanelOpen ? 'slide-in' : 'slide-out'}`}>

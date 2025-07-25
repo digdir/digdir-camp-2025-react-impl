@@ -1,27 +1,45 @@
 .ai-button {
-  @apply fixed bottom-6 right-20 z-10
-  w-24 h-24
-  rounded-full
-  bg-gradient-to-br from-blue-600 to-blue-500
-  text-white
-  hover:from-blue-700 hover:to-blue-600
-  flex items-center justify-center
-  text-2xl
-  font-bold
-  transition-all duration-200
-  shadow-xl
-  outline-none;
+  @apply fixed bottom-6 right-20;
   border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  z-index: 1000;
+}
+
+.ai-button:hover {
+  transform: scale(1.05);
+}
+
+.ai-button-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 40%;
+  background: white;
+  padding: 24px;
+  object-fit: contain;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  display: block;
+}
+
+.ai-button-logo:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transform: translateY(-1px);
 }
 
 .ai-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
 }
 
 .ai-button.move-left {
   right: 550px;
   transform: scale(0.95);
+}
+
+.ai-button.move-left:hover {
+  transform: scale(1.0) translateY(-1px);
 }
 
 .ai-panel {
