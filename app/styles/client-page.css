@@ -33,19 +33,10 @@
   outline: none;
 }
 
-.ai-button.move-left {
-  right: 550px;
-  transform: scale(0.95);
-}
-
-.ai-button.move-left:hover {
-  transform: scale(1.0) translateY(-1px);
-}
-
 .ai-panel {
   @apply fixed top-20 bottom-4 bg-white shadow-2xl z-50;
   pointer-events: none;
-  right: 5rem;
+  right: 15rem;
   width: 22rem;
   border-radius: 0.75rem;
   display: flex;
@@ -56,6 +47,7 @@
   opacity: 0;
   transform-origin: bottom right;
   transition: transform 0.3s ease, opacity 0.3s ease;
+  z-index: 2000;
 }
 
 .ai-panel.slide-in {
@@ -111,7 +103,7 @@
 
 .ai-suggestion-item.selected {
   background-color: #eff6ff;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #ef4444;
   padding-left: 13px;
 }
 
@@ -133,7 +125,7 @@
 .ai-suggestion-category {
   font-size: 0.75rem;
   line-height: 1rem;
-  color: #3b82f6;
+  color: #ef4444;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.025em;
@@ -154,7 +146,11 @@
 }
 
 .ai-panel-title {
-  @apply text-lg font-semibold text-gray-800;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #223677;
+  font-family: "Comic Sans MS", "Chalkboard SE", "Bradley Hand", cursive, system-ui;
+  letter-spacing: -0.025em;
 }
 
 .ai-panel-close {
@@ -185,7 +181,7 @@
   bg-white
   text-gray-800
   focus:outline-none
-  focus:ring-2 focus:ring-blue-400
+  focus:ring-2 focus:ring-red-400
   transition duration-150
   resize-none;
   word-wrap: break-word;
@@ -199,8 +195,8 @@
 .ai-submit-button {
   @apply mt-3
   px-5 py-2.5
-  bg-blue-500
-  hover:bg-blue-600
+  bg-red-500
+  hover:bg-red-600
   text-white
   font-semibold
   rounded-md
@@ -375,7 +371,7 @@
 
 .ai-clear-button:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 0 2px rgba(156, 9, 21, 0.4);
 }
 
 .ai-clear-button:disabled:hover {
@@ -384,14 +380,14 @@
 
 .ai-context-label {
   display: inline-block;
-  background-color: #e0f2fe;
-  color: #0369a1;
+  background-color: #ffffff;
+  color: #ef4444;
   font-size: 0.85rem;
   font-weight: 500;
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   margin-bottom: 0.75rem;
-  border: 1px solid #bae6fd;
+  border: 1px solid #ef4444;
 }
 
 .chat-message.system {
