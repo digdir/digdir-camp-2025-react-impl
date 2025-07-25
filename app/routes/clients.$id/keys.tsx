@@ -6,6 +6,8 @@ import { useFetcher } from 'react-router'
 import { parseWithZod } from '@conform-to/zod';
 import { useForm } from '@conform-to/react';
 
+import { ContextBuilder } from '~/lib/context-builder';
+import { useAiAssistantContext } from '~/components/ai/AiAssistant';
 import { useTranslation } from '~/lib/i18n';
 import { dateFromEpochSeconds, formatDateTimeCompact, isExpired, isExpiredAfterOneMonth } from '~/lib/utils';
 import { JWK } from '~/lib/models';
@@ -20,6 +22,9 @@ const pemCertRegex = /-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE----
 const pemPublicKeyRegex = /-----BEGIN (RSA |EC |)?PUBLIC KEY-----[\s\S]+-----END (RSA |EC |)?PUBLIC KEY-----/;
 const pemPrivateKeyRegex = /PRIVATE KEY/;
 
+/**
+ * Schema for validating JWK or PEM formatted keys.
+ */
 export const schema = z.object({
     jwk: z
         .string({ required_error: 'validation.key_required' })
@@ -50,7 +55,12 @@ export const schema = z.object({
         }),
 });
 
-
+/**
+ * Modal component for adding a new key to the client.
+ *
+ * @param closeModal - Function to close the modal.
+ * @constructor - This component renders a form for adding a new key, validates the input, and submits it to the server.
+ */
 const AddKeyModal = ({ closeModal }: { closeModal: () => void }) => {
     const [form, fields] = useForm({
         onValidate({ formData }) {
@@ -117,13 +127,31 @@ const AddKeyModal = ({ closeModal }: { closeModal: () => void }) => {
     )
 }
 
-
+/**
+ * Component that displays the keys associated with a client.
+ *
+ * @param jwks - An array of JWK objects representing the keys associated with the client.
+ * @constructor - This component fetches the context for the AI assistant, displays the keys, and allows the user to add or delete keys.
+ */
 const Keys = ({ jwks }: { jwks: JWK[] }) => {
     const { t } = useTranslation();
     const [kidToDelete, setKidToDelete] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { setContext } = useAiAssistantContext();
 
     const fetcher = useFetcher();
+
+    useEffect(() => {
+        const loadContext = async () => {
+            const builtContext = await ContextBuilder.buildKeysContext(jwks);
+            setContext({
+                ...builtContext,
+                page: 'client-keys',
+                info: 'Dette er klient nøkler siden'
+            });
+        };
+        void loadContext();
+    }, [jwks, setContext]);
 
     const deleteKey = async () => {
         try {
@@ -182,6 +210,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
                     {jwks.map((jwk) => (
                         <Card
                             key={jwk.kid}
+                            data-key-id={jwk.kid}
                             data-color="accent"
                             className={'rounded-lg shadow mt-4 border-none flex flex-col items-center bg-white ml-auto p-6'}>
                             <div className="grid grid-cols-12 w-full">
@@ -274,4 +303,7 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
     );
 };
 
+/**
+ * Keys component that displays the keys associated with a client.
+ */
 export default Keys;

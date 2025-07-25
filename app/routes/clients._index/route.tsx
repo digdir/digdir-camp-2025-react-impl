@@ -1,5 +1,5 @@
 import { Button, Dropdown, Paragraph, Search, Table } from '@digdir/designsystemet-react';
-import { Link, useLoaderData } from 'react-router';
+import {Link, Outlet, useLoaderData} from 'react-router';
 import { ChevronDownIcon, PlusIcon } from '@navikt/aksel-icons';
 import { useEffect, useState } from 'react';
 
@@ -14,7 +14,7 @@ import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
 import { ClientService } from '~/lib/clients';
 import { ContextBuilder } from '~/lib/context-builder';
-import AiAssistant from '~/components/ai/AiAssistant';
+import AiAssistant, { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 /**
  * Enum representing the fields by which clients can be sorted.
@@ -57,7 +57,7 @@ export async function clientLoader() {
 export default function Clients() {
     const { t } = useTranslation();
     const data = useLoaderData<typeof clientLoader>();
-    const [context, setContext] = useState<any>(null);
+    const { setContext } = useAiAssistantContext();
 
     const [integrationTypeDropdownOpen, setIntegrationTypeDropdownOpen] = useState(false);
     const [selectedIntegrationType, setSelectedIntegrationType] = useState<string | null>(null);
@@ -65,18 +65,15 @@ export default function Clients() {
     const searchTerms = search.toLowerCase().split(' ');
     const fieldsToSearch = ['client_name', 'client_id', 'description'];
 
-    // Set initial sorting by "created" in ascending order
     const [sortField, setSortField] = useState<SortField>(SortField.Created);
     const [sortAscending, setSortAscending] = useState(false);
 
-    if (isErrorResponse(data)) {
-        return <AlertWrapper message={data.error} type="error"/>;
-    }
-
-    const { clients } = data;
-
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
+        if (isErrorResponse(data)) {
+            return;
+        }
+
+        const { clients } = data;
         const loadContext = async () => {
             const builtContext = await ContextBuilder.buildClientsContext(clients ?? []);
             setContext({
@@ -86,7 +83,13 @@ export default function Clients() {
             });
         };
         void loadContext();
-    }, [clients]);
+    }, [data, setContext]);
+
+    if (isErrorResponse(data)) {
+        return <AlertWrapper message={data.error} type="error"/>;
+    }
+
+    const { clients } = data;
 
     const compareClients = (a: Client, b: Client, sortField: SortField) => {
         const result = a[sortField]!.localeCompare(b[sortField]!);
@@ -156,7 +159,8 @@ export default function Clients() {
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
-                <AiAssistant context={context} />
+                <AiAssistant />
+                <Outlet />
                 <HeadingWrapper className={'pe-3'} level={2} heading={t('client', { count: 0 })}/>
                 <HelpText aria-label={t('clients_helptext_aria')}> {t('clients_helptext')} </HelpText>
                 <Button variant="primary" asChild className="px-6 shadow h-full ml-auto">

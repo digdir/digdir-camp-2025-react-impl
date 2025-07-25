@@ -15,6 +15,7 @@ import { formatDateTimeCompact } from '~/lib/utils';
 import { onBehalfOfSchema } from '~/lib/clients';
 import { ErrorMessage } from '~/lib/errors';
 import { Textfield } from '~/components/util/TextField';
+import { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 import { ActionIntent } from './actions';
 
@@ -160,12 +161,22 @@ const AddOnBehalfOfModal = ({ closeModal, existingOnBehalfOf }: { closeModal: ()
 
 const OnBehalfOf = ({ onBehalfOfs }: { onBehalfOfs: ClientOnBehalfOf[] }) => {
     const { t } = useTranslation();
+    const { setContext } = useAiAssistantContext();
 
     const [onBehalfOfToDelete, setOnBehalfOfToDelete] = useState<ClientOnBehalfOf | null>(null);
     const [editingOnBehalfOf, setEditingOnBehalfOf] = useState<ClientOnBehalfOf | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const fetcher = useFetcher();
+
+    // Set context back to client-details when this component is rendered
+    useEffect(() => {
+        setContext((prevContext: any) => ({
+            ...prevContext,
+            page: 'client-details',
+            info: 'Dette er klient-detaljer og on-behalf-of siden'
+        }));
+    }, [setContext]);
 
     const deleteOnBehalfOf = async () => {
         if (!onBehalfOfToDelete || !onBehalfOfToDelete.onbehalfof || !onBehalfOfToDelete.name) return;

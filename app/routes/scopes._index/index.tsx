@@ -1,11 +1,11 @@
-import { Link, useLoaderData } from 'react-router';
+import { Link, Outlet, useLoaderData } from 'react-router';
 import { Button, Dropdown, Paragraph, Search, Table } from '@digdir/designsystemet-react';
 import { useEffect, useState } from 'react';
 import { ChevronDownIcon, PlusIcon } from '@navikt/aksel-icons';
 
 import { useTranslation } from '~/lib/i18n';
 import { ApiClient } from '~/lib/api_client';
-import { filterFunc, formatDateTimeCompact } from '~/lib/utils';
+import { formatDateTimeCompact } from '~/lib/utils';
 import { Scope } from '~/lib/models';
 import AlertWrapper from '~/components/util/AlertWrapper';
 import { isErrorResponse } from '~/lib/errors';
@@ -14,7 +14,7 @@ import PersonFishing from '~/components/art/PersonFishing';
 import { HelpText } from '~/components/util/HelpText';
 import { Authorization } from '~/lib/auth';
 import { ContextBuilder } from '~/lib/context-builder';
-import AiAssistant from '~/components/ai/AiAssistant';
+import AiAssistant, { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 /**
  * Function to load the client data for scopes.
@@ -52,13 +52,10 @@ enum SortField {
  */
 export default function Scopes() {
     const { t } = useTranslation();
+    const { setContext } = useAiAssistantContext();
 
-    const [context, setContext] = useState<any>(null);
     const [prefixDropdownOpen, setPrefixDropdownOpen] = useState(false);
     const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null);
-    const [search, setSearch] = useState('');
-    const searchTerms = search.toLowerCase().split(' ');
-    const fieldsToSearch = ['prefix', 'subscope', 'description'];
 
     // Set initial sorting by "created" in ascending order
     const [sortField, setSortField] = useState<SortField>(SortField.Created);
@@ -66,14 +63,12 @@ export default function Scopes() {
 
     const data = useLoaderData<typeof clientLoader>();
 
-    if (isErrorResponse(data)) {
-        return <AlertWrapper message={data.error} type="error"/>;
-    }
-
-    const { scopes, scopePrefixes } = data;
-
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     useEffect(() => {
+        if (isErrorResponse(data)) {
+            return;
+        }
+
+        const { scopes, scopePrefixes } = data;
         const loadContext = async () => {
             const builtContext = await ContextBuilder.buildScopesContext(scopes ?? [], scopePrefixes ?? []);
             setContext({
@@ -83,7 +78,13 @@ export default function Scopes() {
             });
         };
         void loadContext();
-    }, [scopes, scopePrefixes]);
+    }, [data, setContext]);
+
+    if (isErrorResponse(data)) {
+        return <AlertWrapper message={data.error} type="error"/>;
+    }
+
+    const { scopes, scopePrefixes } = data;
 
     const compareScopes = (a: Scope, b: Scope, sortField: SortField) => {
         const result = a[sortField]!.localeCompare(b[sortField]!);
@@ -94,21 +95,17 @@ export default function Scopes() {
         if (sortField === field) {
             setSortAscending(!sortAscending);
         } else {
-            // Set new sort field and default to ascending
             setSortField(field);
             setSortAscending(true);
         }
     };
 
-    const sortedScopes = sortField
-        ? [...scopes!].sort((a, b) => compareScopes(a, b, sortField))
-        : scopes;
+    const sortedScopes = scopes ? [...scopes].sort((a, b) => compareScopes(a, b, sortField)) : [];
 
-    // Filter scopes based on search terms and selected prefix
-    const filteredScopes = sortedScopes!
-        .filter(scope => scope.active)
-        .filter(scope => filterFunc(scope, fieldsToSearch, searchTerms))
-        .filter(scope => selectedPrefix ? scope.prefix === selectedPrefix : true);
+    const filteredScopes = sortedScopes;
+
+    const nameSortOrder = sortField === SortField.Name ? (sortAscending ? 'ascending' : 'descending') : 'none';
+    const createdSortOrder = sortField === SortField.Created ? (sortAscending ? 'ascending' : 'descending') : 'none';
 
     const rows = filteredScopes.map(scope => (
         <Table.Row key={scope.name}>
@@ -128,7 +125,7 @@ export default function Scopes() {
         </Table.Row>
     ));
 
-    if (scopePrefixes!.length <= 0) {
+    if (scopePrefixes.length <= 0) {
         return (
             <>
                 <div className="flex items-baseline self-auto pt-6 mb-2">
@@ -149,7 +146,7 @@ export default function Scopes() {
         )
     }
 
-    if (scopes!.length <= 0) {
+    if (scopes.length <= 0) {
         return (
             <>
                 <div className="flex items-baseline self-auto pt-6 mb-2">
@@ -176,10 +173,11 @@ export default function Scopes() {
     return (
         <div>
             <div className="flex items-center self-auto pt-6 mb-2">
-                <AiAssistant context={context} />
+                <AiAssistant />
+                <Outlet />
                 <HeadingWrapper className={'pe-3'} level={2} heading={t('scope', { count: 0 })}/>
                 <HelpText aria-label={t('scopes_helptext_aria')}> {t('scopes_helptext')} </HelpText>
-                {scopePrefixes!.length > 0 && <Button variant='primary' asChild className="px-6 shadow h-full ml-auto">
+                {scopePrefixes.length > 0 && <Button variant='primary' asChild className="px-6 shadow h-full ml-auto">
                     <Link to="/scopes/add" className="no-underline text-accent-contrast">
                         <PlusIcon/>
                         {t('add')}
@@ -187,96 +185,92 @@ export default function Scopes() {
                 </Button>}
             </div>
 
-            <>
-                <div className="py-2 grid grid-cols-12 sticky top-0 z-10 bg-gray">
-                    {(scopes!.length > 3) &&
-                        <div className='col-span-12 grid grid-cols-12 gap-4 '>
-                            <Search className='shadow col-span-6 md:col-span-5 max-w'>
-                                <Search.Input
-                                    placeholder={t('scope_page.scope_search')}
-                                    aria-label={t('scope_page.scope_search')}
-                                    className='border-none bg-white'
-                                    onChange={e => setSearch(e.target.value)}
-                                />
-                                <Search.Clear/>
-                            </Search>
-                            {(scopePrefixes!.length > 0) && (
-                                <div className='col-span-6 md:col-span-7'>
-                                    <Dropdown.TriggerContext>
-                                        <Dropdown.Trigger
-                                            variant={'tertiary'}
-                                            onClick={() => setPrefixDropdownOpen(!prefixDropdownOpen)}>
-                                            <ChevronDownIcon/>
-                                            <div className='line-clamp-1 break-all'>
-                                                {selectedPrefix || t('scope_page.all_prefixes')}
-                                            </div>
-                                        </Dropdown.Trigger>
-                                        <Dropdown open={prefixDropdownOpen} onClose={() => setPrefixDropdownOpen(false)} className='col-span-7 bg-white'>
-                                            <Dropdown.List className='gap-3'>
+            <div className="py-2 grid grid-cols-12 sticky top-0 z-10 bg-gray">
+                {scopes.length > 3 && (
+                    <div className='col-span-12 grid grid-cols-12 gap-4 '>
+                        <Search className='shadow col-span-6 md:col-span-5 max-w'>
+                            <Search.Input
+                                placeholder={t('scope_page.scope_search')}
+                                aria-label={t('scope_page.scope_search')}
+                                className='border-none bg-white'
+                            />
+                            <Search.Clear/>
+                        </Search>
+                        {scopePrefixes.length > 0 && (
+                            <div className='col-span-6 md:col-span-7'>
+                                <Dropdown.TriggerContext>
+                                    <Dropdown.Trigger
+                                        variant={'tertiary'}
+                                        onClick={() => setPrefixDropdownOpen(!prefixDropdownOpen)}>
+                                        <ChevronDownIcon/>
+                                        <div className='line-clamp-1 break-all'>
+                                            {selectedPrefix || t('scope_page.all_prefixes')}
+                                        </div>
+                                    </Dropdown.Trigger>
+                                    <Dropdown open={prefixDropdownOpen} onClose={() => setPrefixDropdownOpen(false)} className='col-span-7 bg-white'>
+                                        <Dropdown.List className='gap-3'>
+                                            <Dropdown.Button
+                                                onClick={() => {
+                                                    setSelectedPrefix(null);
+                                                    setPrefixDropdownOpen(false);
+                                                }}
+                                            >
+                                                {t('scope_page.all_prefixes')}
+                                            </Dropdown.Button>
+
+                                            {scopePrefixes.map(scopePrefix => (
                                                 <Dropdown.Button
+                                                    key={scopePrefix.prefix}
                                                     onClick={() => {
-                                                        setSelectedPrefix(null);
+                                                        setSelectedPrefix(scopePrefix.prefix!);
                                                         setPrefixDropdownOpen(false);
                                                     }}
+                                                    className='whitespace-nowrap'
                                                 >
-                                                    {t('scope_page.all_prefixes')}
+                                                    {scopePrefix.prefix}
                                                 </Dropdown.Button>
-
-                                                {scopePrefixes!.map(scopePrefix => (
-                                                    <Dropdown.Button
-                                                        key={scopePrefix.prefix}
-
-                                                        onClick={() => {
-                                                            setSelectedPrefix(scopePrefix.prefix!);
-                                                            setPrefixDropdownOpen(false);
-                                                        }}
-                                                        className='whitespace-nowrap'
-                                                    >
-                                                        {scopePrefix.prefix}
-                                                    </Dropdown.Button>
-                                                ))}
-                                            </Dropdown.List>
-                                        </Dropdown>
-                                    </Dropdown.TriggerContext>
-                                </div>
-                            )}
-                        </div>
-                    }
-                </div>
-
-                {scopes!.length > 0 && (
-                    <div className="w-full overflow-x-auto rounded-lg mt-2">
-                        <Table border style={{ tableLayout: 'fixed' }} className='overflow-hidden min-w-[50rem] border-none'>
-                            <Table.Head>
-                                <Table.Row>
-                                    <Table.HeaderCell sort={sortField === SortField.Name ? (sortAscending ? 'ascending' : 'descending') : 'none'} onClick={() => handleSort(SortField.Name)}>
-                                        <div className='inline-flex items-center  overflow-hidden'>
-                                            <Paragraph className='py-2 pe-1'>
-                                                {t('name')}
-                                            </Paragraph>
-                                        </div>
-                                    </Table.HeaderCell>
-                                    <Table.HeaderCell>
-                                        <Paragraph>
-                                            {t('description')}
-                                        </Paragraph>
-                                    </Table.HeaderCell>
-                                    <Table.HeaderCell sort={sortField === SortField.Created ? (sortAscending ? 'ascending' : 'descending') : 'none'} onClick={() => handleSort(SortField.Created)}>
-                                        <div className='inline-flex items-center'>
-                                            <Paragraph className='py-2 pe-1'>
-                                                {t('created')}
-                                            </Paragraph>
-                                        </div>
-                                    </Table.HeaderCell>
-                                </Table.Row>
-                            </Table.Head>
-                            <Table.Body>
-                                {rows}
-                            </Table.Body>
-                        </Table>
+                                            ))}
+                                        </Dropdown.List>
+                                    </Dropdown>
+                                </Dropdown.TriggerContext>
+                            </div>
+                        )}
                     </div>
                 )}
-            </>
+            </div>
+
+            {scopes.length > 0 && (
+                <div className="w-full overflow-x-auto rounded-lg mt-2">
+                    <Table border style={{ tableLayout: 'fixed' }} className='overflow-hidden min-w-[50rem] border-none'>
+                        <Table.Head>
+                            <Table.Row>
+                                <Table.HeaderCell sort={nameSortOrder} onClick={() => handleSort(SortField.Name)}>
+                                    <div className='inline-flex items-center  overflow-hidden'>
+                                        <Paragraph className='py-2 pe-1'>
+                                            {t('name')}
+                                        </Paragraph>
+                                    </div>
+                                </Table.HeaderCell>
+                                <Table.HeaderCell>
+                                    <Paragraph>
+                                        {t('description')}
+                                    </Paragraph>
+                                </Table.HeaderCell>
+                                <Table.HeaderCell sort={createdSortOrder} onClick={() => handleSort(SortField.Created)}>
+                                    <div className='inline-flex items-center'>
+                                        <Paragraph className='py-2 pe-1'>
+                                            {t('created')}
+                                        </Paragraph>
+                                    </div>
+                                </Table.HeaderCell>
+                            </Table.Row>
+                        </Table.Head>
+                        <Table.Body>
+                            {rows}
+                        </Table.Body>
+                    </Table>
+                </div>
+            )}
         </div>
     );
 }

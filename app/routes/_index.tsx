@@ -1,13 +1,13 @@
 import { Card, Paragraph } from '@digdir/designsystemet-react';
-import { Link, MetaFunction, redirect } from 'react-router';
-import { useEffect, useState } from 'react';
+import {Link, MetaFunction, Outlet, redirect} from 'react-router';
+import { useEffect } from 'react';
 
 import { useTranslation } from '~/lib/i18n';
 import HeadingWrapper from '~/components/util/HeadingWrapper';
 import { ApiClient } from '~/lib/api_client';
 import { Authorization } from '~/lib/auth';
 import { ContextBuilder } from '~/lib/context-builder';
-import AiAssistant from '~/components/ai/AiAssistant';
+import AiAssistant, { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 /**
  * Meta function to set the page title and description for the home page.
@@ -49,7 +49,7 @@ export async function clientLoader() {
  */
 export default function Home() {
     const { t } = useTranslation();
-    const [context, setContext] = useState<any>(null);
+    const { setContext } = useAiAssistantContext();
 
     useEffect(() => {
         const loadContext = async () => {
@@ -60,24 +60,23 @@ export default function Home() {
                 clientsResponse.data ?? [],
                 scopesResponse.data ?? []
             );
-            setContext(builtContext);
+
+            setContext({
+                ...builtContext,
+                page: 'home',
+                info: 'Dette er selvbetjening forsiden'
+            });
         };
         void loadContext();
-    }, []);
-
-    if (!context) return null;
-
-    const staticContext = {
-        page: 'home',
-        info: 'Dette er selvbetjening forsiden'
-    };
+    }, [setContext]);
 
     /**
      * Renders the home page with a heading, AI assistant, and links to client and scope configurations.
      */
     return (
         <div className='py-16'>
-            <AiAssistant context={{ ...context, ...staticContext }} />
+            <AiAssistant />
+            <Outlet />
             <HeadingWrapper level={1} heading={t('home_page.heading')} className="font-medium"/>
 
             <div className='min-h-[700px] md:min-h-[650px] lg:min-h-[400px]'>
