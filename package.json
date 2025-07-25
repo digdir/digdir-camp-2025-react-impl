@@ -21,7 +21,7 @@
         "@digdir/designsystemet-theme": "^1.1.1",
         "@navikt/aksel-icons": "^7.24.0",
         "@react-router/node": "^7.5.3",
-        "@react-router/serve": "^7.5.3",
+        "@react-router/serve": "^7.7.1",
         "isbot": "^5.1.28",
         "jwt-decode": "^4.0.0",
         "openapi-fetch": "^0.14.0",
