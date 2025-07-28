@@ -73,7 +73,6 @@ class ChatbotService {
                     ...(context && { context })
                 };
 
-                // Log context structure without exposing sensitive data
                 if (context) {
                     console.log('ChatbotService: Context structure:', {
                         page: context.page,
@@ -93,7 +92,6 @@ class ChatbotService {
                     });
                 }
 
-                // Check if context is too large (>1MB)
                 const contextString = JSON.stringify(requestBody);
                 const requestSizeKB = contextString.length / 1024;
                 console.log(`ChatbotService: Request size: ${requestSizeKB.toFixed(2)} KB`);
@@ -103,8 +101,7 @@ class ChatbotService {
                 }
 
                 console.log('ChatbotService: Making fetch request...');
-                
-                // Add timestamp to avoid browser caching issues with CORS
+
                 const timestamp = new Date().getTime();
                 const requestUrl = `${this.BASE_URL}/copilot/?_t=${timestamp}`;
                 
@@ -112,17 +109,14 @@ class ChatbotService {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        // Add explicit headers to help with CORS
                         'Accept': 'application/json',
                         'Cache-Control': 'no-cache',
                         'Pragma': 'no-cache'
                     },
                     body: contextString,
                     signal: abortController?.signal,
-                    // Explicitly set credentials and cache policy
-                    credentials: 'omit', // Since we're not using authentication
+                    credentials: 'omit',
                     cache: 'no-cache',
-                    // Ensure we're making a fresh request
                     mode: 'cors'
                 });
 
@@ -172,23 +166,21 @@ class ChatbotService {
                     attempt,
                     willRetry: attempt < maxRetries
                 });
-                
-                // For CORS/Network errors, we could retry, but it's likely a backend configuration issue
+
                 if (error instanceof TypeError && (error.message.includes('fetch') || error.message.includes('Failed to fetch'))) {
                     if (attempt < maxRetries) {
                         console.log('ChatbotService: CORS/Network error detected, waiting 1s before retry...');
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         continue;
                     }
-                    
-                    // Check if it's likely a CORS issue by looking at the browser console
-                    console.error('🚨 CORS/Network Error Detected - This usually means:');
+
+                    console.error('CORS/Network Error Detected - This usually means:');
                     console.error('1. Browser is caching a failed CORS preflight request');
                     console.error('2. Browser extensions (ad blockers) are interfering');
                     console.error('3. Browser security policy is blocking the request');
                     console.error('4. Backend crashed or returned 500 error');
                     console.error('');
-                    console.error('🔧 Try these solutions:');
+                    console.error('Try these solutions:');
                     console.error('1. Hard refresh the page (Ctrl+F5 or Cmd+Shift+R)');
                     console.error('2. Clear browser cache and cookies');
                     console.error('3. Disable browser extensions temporarily');
@@ -196,15 +188,12 @@ class ChatbotService {
                     
                     throw new Error('Browser CORS issue: Try hard refresh (Ctrl+F5) or incognito mode. Backend is working fine.');
                 }
-                
-                // For non-network errors, don't retry
+
                 if (attempt >= maxRetries) {
                     break;
                 }
             }
         }
-        
-        // If we get here, all retries failed
         throw lastError || new Error('All retry attempts failed');
     }
 }
@@ -434,72 +423,77 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
         break;
     }
 
-    // Add scope conflict suggestions if there are conflicts in the context
+    /**
+     * Check for scope conflicts in the context and add relevant suggestions.
+     */
     if (context?.scopeConflicts && context.scopeConflicts.length > 0) {
         const authLifetimeConflicts = context.scopeConflicts.filter((c: any) => c.type === 'authorization_lifetime_conflict');
         const accessTokenConflicts = context.scopeConflicts.filter((c: any) => c.type === 'access_token_lifetime_conflict');
 
         if (authLifetimeConflicts.length > 0) {
-            // High priority - authorization conflicts cause immediate logout
             suggestions.unshift({
                 id: 'auth-lifetime-conflicts',
                 text: `Klienten har ${authLifetimeConflicts.length} scope(s) som logger ut brukeren tidligere enn forventet`,
                 description: 'Scopes med lavere autorisasjonslevetid overstyrer klientens innstillinger',
-                category: '🚨 Kritisk feil'
+                category: 'Kritisk feil'
             });
 
-            // Add specific suggestions for each conflicting scope
             authLifetimeConflicts.slice(0, 3).forEach((conflict: any) => {
                 suggestions.unshift({
                     id: `fix-auth-${conflict.scopeName}`,
                     text: `Løs autorisasjonskonflikt for scope '${conflict.scopeName}'`,
                     description: `Scope har ${conflict.scopeLifetime}s, klient har ${conflict.clientLifetime}s - reduser klientens levetid`,
-                    category: '🔧 Løsningsforslag'
+                    category: 'Løsningsforslag'
                 });
             });
         }
 
+        /**
+         * Check for access token conflicts and add suggestions.
+         */
         if (accessTokenConflicts.length > 0) {
             suggestions.unshift({
                 id: 'access-token-conflicts',
                 text: `Klienten har ${accessTokenConflicts.length} scope(s) med lavere access token levetid`,
                 description: 'Access tokens vil utløpe tidligere enn klientens innstillinger',
-                category: '⚠️ Konfigurasjonsfeil'
+                category: 'Konfigurasjonsfeil'
             });
 
-            // Add specific suggestions for access token conflicts
             accessTokenConflicts.slice(0, 2).forEach((conflict: any) => {
                 suggestions.unshift({
                     id: `fix-token-${conflict.scopeName}`,
                     text: `Juster access token levetid for scope '${conflict.scopeName}'`,
                     description: `Scope har ${conflict.scopeLifetime}s, klient har ${conflict.clientLifetime}s`,
-                    category: '🔧 Løsningsforslag'
+                    category: 'Løsningsforslag'
                 });
             });
         }
 
-        // Add general troubleshooting suggestion if there are many conflicts
+        /**
+         * If there are more than 3 scope conflicts, suggest reviewing all.
+         */
         if (context.scopeConflicts.length > 3) {
             suggestions.unshift({
                 id: 'review-all-conflicts',
                 text: `Gjennomgå alle ${context.scopeConflicts.length} konfigurasjonskonflikter`,
                 description: 'Få en komplett oversikt over alle lifetime konflikter og anbefalte løsninger',
-                category: '📋 Komplett analyse'
+                category: 'Komplett analyse'
             });
         }
     }
 
-    // Add dynamic suggestions based on user input keywords
+    /**
+     * If the user input contains specific keywords, add relevant suggestions.
+     */
     if (input.trim()) {
         const inputLower = input.toLowerCase();
-        
-        // Suggestions for lifetime and logout related keywords
+
         if (inputLower.includes('levetid') || inputLower.includes('lifetime') || inputLower.includes('logger ut') || inputLower.includes('utløp')) {
             suggestions.unshift({
                 id: 'lifetime-help',
                 text: 'Forstå hvordan scope lifetime påvirker min klient',
                 description: 'Lær om sammenhenger mellom klient- og scope-levetider',
-                category: '📚 Læringsressurs'
+                category: 'Læringsressurs'
             });
         }
 
@@ -508,7 +502,7 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
                 id: 'conflict-diagnosis',
                 text: 'Diagnostiser konfigurasjonskonflikter automatisk',
                 description: 'La AI-assistenten analysere alle mulige problemer med klienten',
-                category: '🔍 Automatisk diagnose'
+                category: 'Automatisk diagnose'
             });
         }
 
@@ -517,7 +511,7 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
                 id: 'access-token-help',
                 text: 'Hvordan fungerer access token levetider?',
                 description: 'Forklaring av access token lifetime innstillinger',
-                category: '📚 Læringsressurs'
+                category: 'Læringsressurs'
             });
         }
 
@@ -528,6 +522,9 @@ function getContextualSuggestions(context?: any, input: string = ''): Suggestion
         );
     }
 
+    /**
+     * Sort suggestions by category first, then by text.
+     */
     return suggestions.sort((a, b) => {
         if (a.category !== b.category) {
             return a.category.localeCompare(b.category);
@@ -553,7 +550,7 @@ export interface HighlightAction {
 interface GlobalAiState {
     context: any;
     setContext: (context: any) => void;
-    lockedContext: any; // Kontekst som brukes under pågående spørsmål
+    lockedContext: any;
     setLockedContext: (context: any) => void;
     messages: AiMessage[];
     setMessages: React.Dispatch<React.SetStateAction<AiMessage[]>>;
@@ -568,6 +565,12 @@ interface GlobalAiState {
  */
 const AiAssistantContext = createContext<GlobalAiState | null>(null);
 
+/**
+ * Provider component for the AI assistant context.
+ *
+ * @param children - The child components to be rendered within the provider.
+ * @constructor - This component initializes the AI assistant context and provides state management for messages, context, and loading state.
+ */
 export const AiAssistantProvider = ({ children }: { children: React.ReactNode }) => {
     const [context, setContext] = useState<any>(null);
     const [lockedContext, setLockedContext] = useState<any>(() => {
@@ -662,21 +665,17 @@ export const useAiAssistantContext = () => {
 export default function AiAssistant(): React.JSX.Element {
     const { context, lockedContext, setLockedContext, messages, setMessages, loading, setLoading, activeRequest, setActiveRequest } = useAiAssistantContext();
 
-    // Debug logging for component mount
     useEffect(() => {
-        console.log('🚀 AiAssistant component mounted');
+        console.log('AiAssistant component mounted');
         console.log('Current window location:', window.location.href);
-        
-        // Test backend connectivity
+
         const testBackend = async () => {
             try {
                 console.log('Testing backend connectivity...');
-                
-                // Add a timestamp to avoid browser caching issues
+
                 const timestamp = new Date().getTime();
                 const testUrl = `http://localhost:8000/copilot/?_t=${timestamp}`;
-                
-                // First try to connect to the main endpoint
+
                 const testResponse = await fetch(testUrl, { 
                     method: 'POST',
                     headers: {
@@ -685,13 +684,13 @@ export default function AiAssistant(): React.JSX.Element {
                         'Pragma': 'no-cache'
                     },
                     body: JSON.stringify({ question: 'ping' }),
-                    signal: AbortSignal.timeout(3000), // 3 second timeout
+                    signal: AbortSignal.timeout(3000),
                     credentials: 'omit',
                     cache: 'no-cache',
                     mode: 'cors'
                 });
                 
-                console.log('✅ Backend main endpoint test:', {
+                console.log('Backend main endpoint test:', {
                     status: testResponse.status,
                     ok: testResponse.ok,
                     statusText: testResponse.statusText,
@@ -703,11 +702,11 @@ export default function AiAssistant(): React.JSX.Element {
                 });
                 
                 if (!testResponse.ok) {
-                    console.warn('⚠️ Backend responded but with error status:', testResponse.status);
+                    console.warn('⚠Backend responded but with error status:', testResponse.status);
                 }
                 
             } catch (error) {
-                console.error('❌ Backend connectivity test failed:', {
+                console.error('Backend connectivity test failed:', {
                     error: error instanceof Error ? error.message : String(error),
                     errorType: error instanceof TypeError ? 'Network/CORS' : 'Other',
                     backendUrl: 'http://localhost:8000',
@@ -715,8 +714,7 @@ export default function AiAssistant(): React.JSX.Element {
                         'Try refreshing the page or clearing browser cache' : 
                         'Check backend logs for errors'
                 });
-                
-                // Try a simple health check as fallback
+
                 try {
                     const healthCheck = await fetch('http://localhost:8000/health', { 
                         method: 'GET',
@@ -734,8 +732,7 @@ export default function AiAssistant(): React.JSX.Element {
         testBackend();
         
         console.log('Checking if logo.png is accessible...');
-        
-        // Test if the logo file is accessible
+
         fetch('/logo.png')
             .then(response => {
                 console.log('Logo fetch response:', response.status, response.statusText);
@@ -764,8 +761,6 @@ export default function AiAssistant(): React.JSX.Element {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
     const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-    
-    // Track what has been highlighted to prevent double highlighting
     const highlightedElementsRef = useRef<Set<string>>(new Set());
     const lastHighlightTimeRef = useRef<number>(0);
     
@@ -834,7 +829,9 @@ export default function AiAssistant(): React.JSX.Element {
         }
     }, [aiPanelOpen]);
 
-    // Debug context updates only in development
+    /**
+     * Logs context updates in development mode for debugging purposes.
+     */
     useEffect(() => {
         if (process.env.NODE_ENV === 'development') {
             console.log('Context oppdatert:', context);
@@ -852,6 +849,9 @@ export default function AiAssistant(): React.JSX.Element {
         }
     }, [context, question]);
 
+    /**
+     * Updates suggestions and visibility based on contextual suggestions and user input.
+     */
     useEffect(() => {
         setSuggestions(contextualSuggestions);
         setShowSuggestions(question.trim() ? contextualSuggestions.length > 0 : false);
@@ -933,7 +933,6 @@ export default function AiAssistant(): React.JSX.Element {
      * Handles input blur to hide suggestions (with delay for clicks)
      */
     const handleInputBlur = () => {
-        // Add small delay to allow suggestion clicks to register
         setTimeout(() => {
             setShowSuggestions(false);
             setSelectedSuggestionIndex(-1);
@@ -961,7 +960,6 @@ export default function AiAssistant(): React.JSX.Element {
                 sessionStorage.setItem(CONTEXT_MESSAGE_KEY, `Nåværende kontekst: ${currentContextLabel}`);
                 sessionStorage.setItem(CONTEXT_LABEL_KEY, currentContextLabel);
             } catch (error) {
-                // Silently ignore highlighting errors to prevent UI breaks
                 console.warn('Scope highlighting failed:', error);
             }
         }
@@ -973,7 +971,6 @@ export default function AiAssistant(): React.JSX.Element {
      * Handles the typing animation for chatbot responses with optimized performance
      */
     const handleTypingAnimation = async (fullAnswer: string, abortController: AbortController) => {
-        // Skip typing animation for very short messages to improve performance
         if (fullAnswer.length < 50) {
             setMessages(prev => [...prev, { id: uuidv4(), sender: 'bot', text: fullAnswer }]);
             setLoading(false);
@@ -986,18 +983,16 @@ export default function AiAssistant(): React.JSX.Element {
         setMessages(prev => [...prev, { id: botMessageId, sender: 'bot', text: currentText }]);
 
         let index = 0;
-        const chunkSize = Math.max(1, Math.floor(fullAnswer.length / 50)); // Type faster for longer messages
+        const chunkSize = Math.max(1, Math.floor(fullAnswer.length / 50));
         const interval = setInterval(() => {
             if (abortController.signal.aborted) {
                 clearInterval(interval);
                 return;
             }
 
-            // Type multiple characters at once for better performance
             index = Math.min(index + chunkSize, fullAnswer.length);
             currentText = fullAnswer.slice(0, index);
-            
-            // Batch update with same message ID to reduce re-renders
+
             setMessages(prev => {
                 const others = prev.slice(0, -1);
                 return [...others, { id: botMessageId, sender: 'bot', text: currentText }];
@@ -1008,7 +1003,7 @@ export default function AiAssistant(): React.JSX.Element {
                 setLoading(false);
                 setActiveRequest(null);
             }
-        }, 30); // Reduced from 15ms to 30ms for better performance
+        }, 30);
     };
 
     /**
@@ -1019,8 +1014,7 @@ export default function AiAssistant(): React.JSX.Element {
         const keyWords = ['nøkkel', 'nøkler', 'sertifikat', 'certificate', 'jwk', 'jwt', 'kryptografi', 'crypto'];
         const expiredWords = ['utløpt', 'expired', 'expire', 'utløper', 'expiry', 'utløp', 'gammel', 'old', 'invalid', 'ugyldig'];
         const problemWords = ['problem', 'feil', 'error', 'issue', 'trouble', 'ikke fungerer', 'virker ikke'];
-        
-        // Exclude scope-related questions from key highlighting - extended list
+
         const scopeWords = [
             'scope', 'scopes', 'access token', 'access_token', 'tilgang',
             'autorisasjon', 'authorization', 'levetid', 'lifetime',
@@ -1028,27 +1022,22 @@ export default function AiAssistant(): React.JSX.Element {
             'brukeren', 'session', 'sesjon'
         ];
         const hasScopeWord = scopeWords.some(word => lowerQuestion.includes(word));
-        
-        // Enhanced logic: Only trigger key highlighting if it's explicitly about keys/certificates
-        // and NOT about scopes, tokens, or authorization
         const hasExplicitKeyWord = keyWords.some(word => lowerQuestion.includes(word));
         const hasKeyProblem = hasExplicitKeyWord && (expiredWords.some(word => lowerQuestion.includes(word)) || problemWords.some(word => lowerQuestion.includes(word)));
-        
-        // Don't highlight keys if the question is about scopes/tokens/authorization
+
         if (hasScopeWord) {
-            console.log('🚫 Key highlighting skipped - question is about scopes/authorization:', { question: lowerQuestion, matchedScopeWords: scopeWords.filter(word => lowerQuestion.includes(word)) });
+            console.log('Key highlighting skipped - question is about scopes/authorization:', { question: lowerQuestion, matchedScopeWords: scopeWords.filter(word => lowerQuestion.includes(word)) });
             return;
         }
-        
-        // Only highlight if explicitly about keys
+
         const shouldHighlightKeys = hasExplicitKeyWord || hasKeyProblem;
         
         if (shouldHighlightKeys) {
-            console.log('🔑 Key highlighting triggered:', { hasExplicitKeyWord, hasKeyProblem, question: lowerQuestion });
+            console.log('Key highlighting triggered:', { hasExplicitKeyWord, hasKeyProblem, question: lowerQuestion });
 
             const tabEl = document.querySelector('[data-tab-id="keys"]');
             if (tabEl) {
-                console.log('🎯 Highlighting keys tab with improved styling');
+                console.log('Highlighting keys tab with improved styling');
                 tabEl.classList.add('ai-tab-highlight');
 
                 setTimeout(() => {
@@ -1067,8 +1056,7 @@ export default function AiAssistant(): React.JSX.Element {
      */
     const handleScopeConflictHighlighting = async (question: string, context: any, hasResponseConflicts: boolean = false) => {
         const lowerQuestion = question.toLowerCase();
-        
-        // Skip highlighting if this looks like an error message
+
         if (lowerQuestion.includes('error:') || lowerQuestion.includes('kan ikke nå') || lowerQuestion.includes('utilgjengelig')) {
             console.log('🚫 Scope conflict highlighting skipped - looks like error message:', { question: lowerQuestion });
             return;
@@ -1088,8 +1076,6 @@ export default function AiAssistant(): React.JSX.Element {
         
         const hasScopeConflictWord = scopeConflictWords.some(word => lowerQuestion.includes(word));
         const hasConflictWord = conflictWords.some(word => lowerQuestion.includes(word));
-        
-        // Enhanced detection for common access token issues
         const isAccessTokenIssue = lowerQuestion.includes('access token') || lowerQuestion.includes('access_token');
         const isLifetimeIssue = lowerQuestion.includes('levetid') || lowerQuestion.includes('lifetime') || lowerQuestion.includes('utløper');
         const isClientSettingIssue = lowerQuestion.includes('innstilling') || lowerQuestion.includes('klientens');
@@ -1108,14 +1094,10 @@ export default function AiAssistant(): React.JSX.Element {
                 isClientSettingIssue,
                 hasResponseConflicts
             });
-            
-            // Always highlight scope conflicts if they exist in context
+
             highlightScopeConflicts(context);
-            
-            // Also highlight relevant lifetime fields, including response-detected conflicts
             highlightLifetimeFields(context, hasResponseConflicts);
-            
-            // Also highlight the scopes tab if it exists
+
             const tabElements = document.querySelectorAll('[role="tab"]');
             let scopesTab: Element | null = null;
             tabElements.forEach((tab) => {
@@ -1126,7 +1108,7 @@ export default function AiAssistant(): React.JSX.Element {
             });
             
             if (scopesTab) {
-                console.log('🎯 Highlighting scopes tab');
+                console.log('Highlighting scopes tab');
                 (scopesTab as HTMLElement).classList.add('ai-tab-highlight');
                 setTimeout(() => {
                     (scopesTab as HTMLElement).classList.remove('ai-tab-highlight');
@@ -1139,30 +1121,30 @@ export default function AiAssistant(): React.JSX.Element {
      * Highlights expired keys with blinking red animation
      */
     const highlightExpiredKeys = useCallback((context: any) => {
-        console.log('🚀 Starting highlightExpiredKeys function'); 
-        console.log('📋 Full context:', context);
+        console.log('Starting highlightExpiredKeys function');
+        console.log('Full context:', context);
 
         const now = new Date();
-        console.log(`⏰ Current time: ${now.toISOString()}`);
+        console.log(`Current time: ${now.toISOString()}`);
         
         const expiredKids = (context?.keys || context?.jwks)
             ?.filter((key: any) => {
                 if (!key.exp) {
-                    console.log(`⚠️ Key ${key.kid}: No expiration date`);
+                    console.log(`Key ${key.kid}: No expiration date`);
                     return false;
                 }
                 const keyDate = dateFromEpochSeconds(key.exp);
                 const keyIsExpired = isExpired(keyDate);
-                console.log(`🔍 Key ${key.kid}: exp=${key.exp} (${keyDate.toISOString()}) vs now (${now.toISOString()}), isExpired=${keyIsExpired}`);
+                console.log(`Key ${key.kid}: exp=${key.exp} (${keyDate.toISOString()}) vs now (${now.toISOString()}), isExpired=${keyIsExpired}`);
 
                 const manualCheck = keyDate.getTime() < now.getTime();
-                console.log(`🔍 Manual check for ${key.kid}: ${manualCheck} (keyTime: ${keyDate.getTime()}, nowTime: ${now.getTime()})`);
+                console.log(`Manual check for ${key.kid}: ${manualCheck} (keyTime: ${keyDate.getTime()}, nowTime: ${now.getTime()})`);
                 
                 return keyIsExpired;
             })
             ?.map((key: any) => key.kid);
 
-        console.log('🔍 Checking for expired keys:', { 
+        console.log('Checking for expired keys:', {
             totalKeys: (context?.keys || context?.jwks)?.length || 0, 
             expiredKids: expiredKids || [],
             contextHasKeys: !!(context?.keys || context?.jwks),
@@ -1171,13 +1153,13 @@ export default function AiAssistant(): React.JSX.Element {
         });
 
         const allKeyElements = document.querySelectorAll('[data-key-id]');
-        console.log('🎯 Found DOM elements with data-key-id:', allKeyElements.length);
+        console.log('Found DOM elements with data-key-id:', allKeyElements.length);
 
         if (allKeyElements.length === 0 && (context?.keys || context?.jwks)?.length > 0) {
-            console.log('🔄 No key DOM elements found, looking for keys tab to click...');
+            console.log('No key DOM elements found, looking for keys tab to click...');
 
             const tabElements = document.querySelectorAll('[role="tab"]');
-            console.log('🎯 Found tabs:', tabElements.length);
+            console.log('Found tabs:', tabElements.length);
             
             let keysTab = null;
             tabElements.forEach((tab, index) => {
@@ -1185,21 +1167,21 @@ export default function AiAssistant(): React.JSX.Element {
                 console.log(`Tab ${index}: "${tab.textContent}"`);
                 if (tabText.includes('nøkler') || tabText.includes('nøkkel') || tabText.includes('keys')) {
                     keysTab = tab;
-                    console.log('🎯 Found keys tab!');
+                    console.log('Found keys tab!');
                 }
             });
             
             if (keysTab) {
-                console.log('�️ Clicking keys tab to load key elements...');
+                console.log('Clicking keys tab to load key elements...');
                 (keysTab as HTMLElement).click();
 
                 setTimeout(() => {
-                    console.log('🔄 Retrying highlight after tab navigation...');
+                    console.log('Retrying highlight after tab navigation...');
                     highlightExpiredKeysAfterTabLoad(expiredKids);
                 }, 500);
                 return;
             } else {
-                console.warn('❌ Could not find keys tab to click');
+                console.warn('Could not find keys tab to click');
             }
         }
 
@@ -1211,14 +1193,14 @@ export default function AiAssistant(): React.JSX.Element {
      */
     const highlightExpiredKeysAfterTabLoad = (expiredKids: string[] | undefined) => {
         const allKeyElements = document.querySelectorAll('[data-key-id]');
-        console.log('🎯 Found DOM elements with data-key-id:', allKeyElements.length);
+        console.log('Found DOM elements with data-key-id:', allKeyElements.length);
         allKeyElements.forEach((el, index) => {
             const keyId = el.getAttribute('data-key-id');
             console.log(`  Element ${index}: data-key-id="${keyId}"`);
         });
 
         if (expiredKids && expiredKids.length > 0) {
-            console.log('⚠️ Highlighting expired keys with blinking animation:', expiredKids);
+            console.log('Highlighting expired keys with blinking animation:', expiredKids);
 
             document.querySelectorAll('[data-key-id]').forEach((el) => {
                 (el as HTMLElement).classList.remove('jwk-expired-highlight');
@@ -1227,11 +1209,11 @@ export default function AiAssistant(): React.JSX.Element {
             setTimeout(() => {
                 expiredKids.forEach((kid: string, index: number) => {
                     const el = document.querySelector(`[data-key-id="${kid}"]`);
-                    console.log(`🎯 Looking for element with data-key-id="${kid}":`, el);
+                    console.log(`Looking for element with data-key-id="${kid}":`, el);
                     
                     if (el) {
                         setTimeout(() => {
-                            console.log(`✨ Adding highlight to key: ${kid}`);
+                            console.log(`Adding highlight to key: ${kid}`);
                             el.classList.add('jwk-expired-highlight');
 
                             if (index === 0) {
@@ -1239,21 +1221,21 @@ export default function AiAssistant(): React.JSX.Element {
                             }
 
                             setTimeout(() => {
-                                console.log(`🔄 Removing highlight from key: ${kid}`);
+                                console.log(`Removing highlight from key: ${kid}`);
                                 el.classList.remove('jwk-expired-highlight');
                             }, 8000);
                         }, index * 300);
                     } else {
-                        console.warn('❌ DOM-element for nøkkel ikke funnet:', kid);
+                        console.warn('DOM-element for nøkkel ikke funnet:', kid);
                         console.log('Available elements:', document.querySelectorAll('[data-key-id]'));
                     }
                 });
             }, 200);
         } else {
-            console.log('ℹ️ No expired keys found by isExpired function');
+            console.log('ℹNo expired keys found by isExpired function');
 
             if (allKeyElements.length > 0) {
-                console.log('🧪 TEST MODE: Highlighting all keys for 3 seconds since no expired keys found');
+                console.log('TEST MODE: Highlighting all keys for 3 seconds since no expired keys found');
                 allKeyElements.forEach((el, index) => {
                     setTimeout(() => {
                         el.classList.add('jwk-expired-highlight');
@@ -1263,7 +1245,7 @@ export default function AiAssistant(): React.JSX.Element {
                     }, index * 200);
                 });
             } else {
-                console.log('ℹ️ No key DOM elements to highlight');
+                console.log('ℹNo key DOM elements to highlight');
             }
         }
     };
@@ -1272,13 +1254,12 @@ export default function AiAssistant(): React.JSX.Element {
      * Highlights lifetime fields based on scope conflicts or response-detected conflicts
      */
     const highlightLifetimeFields = useCallback((context: any, hasResponseConflicts: boolean = false) => {
-        console.log('🚀 Starting highlightLifetimeFields function');
-        console.log('📋 Context for lifetime field highlighting:', context);
+        console.log('Starting highlightLifetimeFields function');
+        console.log('Context for lifetime field highlighting:', context);
 
-        // Prevent double highlighting within 10 seconds
         const now = Date.now();
         const timeSinceLastHighlight = now - lastHighlightTimeRef.current;
-        const shouldSkipDueToRecentHighlight = timeSinceLastHighlight < 10000; // 10 seconds
+        const shouldSkipDueToRecentHighlight = timeSinceLastHighlight < 10000;
 
         if (shouldSkipDueToRecentHighlight) {
             console.log('🚫 Skipping lifetime field highlighting - recently highlighted:', {
@@ -1292,17 +1273,14 @@ export default function AiAssistant(): React.JSX.Element {
         console.log('🔍 Found scope conflicts for lifetime fields:', scopeConflicts);
         console.log('🔍 Response indicates conflicts:', hasResponseConflicts);
 
-        // If response indicates conflicts, we should highlight even without explicit scope conflicts
         if (scopeConflicts.length === 0 && !hasResponseConflicts) {
-            console.log('ℹ️ No scope conflicts found and no response conflicts - no lifetime fields to highlight');
+            console.log('No scope conflicts found and no response conflicts - no lifetime fields to highlight');
             return;
         }
 
-        // Update last highlight time to prevent double highlighting
         lastHighlightTimeRef.current = now;
-        console.log('⏰ Updated last highlight time:', new Date(now).toISOString());
+        console.log('Updated last highlight time:', new Date(now).toISOString());
 
-        // Remove existing highlights
         document.querySelectorAll('[data-field-type]').forEach((el) => {
             (el as HTMLElement).classList.remove(
                 'lifetime-field-conflict-highlight',
@@ -1311,11 +1289,10 @@ export default function AiAssistant(): React.JSX.Element {
             );
         });
 
-        // Group conflicts by type
         const accessTokenConflicts = scopeConflicts.filter((c: any) => c.type === 'access_token_lifetime_conflict');
         const authorizationConflicts = scopeConflicts.filter((c: any) => c.type === 'authorization_lifetime_conflict');
 
-        console.log('📊 Conflict breakdown:', {
+        console.log('Conflict breakdown:', {
             accessTokenConflicts: accessTokenConflicts.length,
             authorizationConflicts: authorizationConflicts.length,
             hasResponseConflicts,
@@ -1323,16 +1300,14 @@ export default function AiAssistant(): React.JSX.Element {
         });
 
         setTimeout(() => {
-            // If response indicates conflicts, highlight both fields to be safe
             const shouldHighlightAccessToken = accessTokenConflicts.length > 0 || hasResponseConflicts;
             const shouldHighlightAuthorization = authorizationConflicts.length > 0 || hasResponseConflicts;
 
-            // Highlight access token lifetime field 
             if (shouldHighlightAccessToken) {
                 const accessTokenField = document.querySelector('[data-field-type="access_token_lifetime"]');
                 if (accessTokenField) {
-                    console.log('🎯 Highlighting access token lifetime field (response-triggered)');
-                    console.log('📋 Element details before highlighting:', {
+                    console.log('Highlighting access token lifetime field (response-triggered)');
+                    console.log('Element details before highlighting:', {
                         tagName: accessTokenField.tagName,
                         className: accessTokenField.className,
                         id: accessTokenField.id,
@@ -1341,11 +1316,10 @@ export default function AiAssistant(): React.JSX.Element {
                     });
                     
                     (accessTokenField as HTMLElement).classList.add('access-token-conflict-highlight');
-                    
-                    // Force a style recalculation
+
                     void (accessTokenField as HTMLElement).offsetHeight;
                     
-                    console.log('✅ Class added - element details after highlighting:', {
+                    console.log('Class added - element details after highlighting:', {
                         className: accessTokenField.className,
                         hasClass: accessTokenField.classList.contains('access-token-conflict-highlight'),
                         computedBackground: window.getComputedStyle(accessTokenField).backgroundColor,
@@ -1353,19 +1327,16 @@ export default function AiAssistant(): React.JSX.Element {
                         computedOutline: window.getComputedStyle(accessTokenField).outline,
                         computedBoxShadow: window.getComputedStyle(accessTokenField).boxShadow
                     });
-                    
-                    // Scroll to field if it's the first conflict
+
                     accessTokenField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
-                    // Remove highlight after animation
+
                     setTimeout(() => {
                         (accessTokenField as HTMLElement).classList.remove('access-token-conflict-highlight');
-                        console.log('🔄 Removed highlighting from access token field');
-                    }, 8000); // Extended highlight time for response-based conflicts
+                        console.log('Removed highlighting from access token field');
+                    }, 8000);
                 } else {
-                    console.warn('❌ Access token lifetime field not found in DOM');
-                    
-                    // Try alternative selectors for access token fields
+                    console.warn('Access token lifetime field not found in DOM');
+
                     const altSelectors = [
                         '[name="access_token_lifetime"]',
                         '[id*="access_token"]',
@@ -1376,7 +1347,7 @@ export default function AiAssistant(): React.JSX.Element {
                     for (const selector of altSelectors) {
                         const altField = document.querySelector(selector);
                         if (altField) {
-                            console.log(`🔄 Found access token field with alternative selector: ${selector}`);
+                            console.log(`Found access token field with alternative selector: ${selector}`);
                             (altField as HTMLElement).classList.add('access-token-conflict-highlight');
                             setTimeout(() => {
                                 (altField as HTMLElement).classList.remove('access-token-conflict-highlight');
@@ -1387,12 +1358,11 @@ export default function AiAssistant(): React.JSX.Element {
                 }
             }
 
-            // Highlight authorization lifetime field
             if (shouldHighlightAuthorization) {
                 const authorizationField = document.querySelector('[data-field-type="authorization_lifetime"]');
                 if (authorizationField) {
-                    console.log('🎯 Highlighting authorization lifetime field (response-triggered)');
-                    console.log('📋 Element details before highlighting:', {
+                    console.log('Highlighting authorization lifetime field (response-triggered)');
+                    console.log('Element details before highlighting:', {
                         tagName: authorizationField.tagName,
                         className: authorizationField.className,
                         id: authorizationField.id,
@@ -1401,11 +1371,10 @@ export default function AiAssistant(): React.JSX.Element {
                     });
                     
                     (authorizationField as HTMLElement).classList.add('authorization-conflict-highlight');
-                    
-                    // Force a style recalculation
+
                     void (authorizationField as HTMLElement).offsetHeight;
                     
-                    console.log('✅ Class added - element details after highlighting:', {
+                    console.log('Class added - element details after highlighting:', {
                         className: authorizationField.className,
                         hasClass: authorizationField.classList.contains('authorization-conflict-highlight'),
                         computedBackground: window.getComputedStyle(authorizationField).backgroundColor,
@@ -1413,21 +1382,18 @@ export default function AiAssistant(): React.JSX.Element {
                         computedOutline: window.getComputedStyle(authorizationField).outline,
                         computedBoxShadow: window.getComputedStyle(authorizationField).boxShadow
                     });
-                    
-                    // Scroll to field if it's the only type of conflict or if access token field wasn't found
+
                     if (!shouldHighlightAccessToken) {
                         authorizationField.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                    
-                    // Remove highlight after animation  
+
                     setTimeout(() => {
                         (authorizationField as HTMLElement).classList.remove('authorization-conflict-highlight');
-                        console.log('🔄 Removed highlighting from authorization field');
-                    }, 8000); // Extended highlight time for response-based conflicts
+                        console.log('Removed highlighting from authorization field');
+                    }, 8000);
                 } else {
-                    console.warn('❌ Authorization lifetime field not found in DOM');
-                    
-                    // Try alternative selectors for authorization fields
+                    console.warn('Authorization lifetime field not found in DOM');
+
                     const altSelectors = [
                         '[name="authorization_max_lifetime"]',
                         '[id*="authorization"]',
@@ -1438,7 +1404,7 @@ export default function AiAssistant(): React.JSX.Element {
                     for (const selector of altSelectors) {
                         const altField = document.querySelector(selector);
                         if (altField) {
-                            console.log(`🔄 Found authorization field with alternative selector: ${selector}`);
+                            console.log(`Found authorization field with alternative selector: ${selector}`);
                             (altField as HTMLElement).classList.add('authorization-conflict-highlight');
                             setTimeout(() => {
                                 (altField as HTMLElement).classList.remove('authorization-conflict-highlight');
@@ -1449,12 +1415,11 @@ export default function AiAssistant(): React.JSX.Element {
                 }
             }
 
-            // If response indicates conflicts but no fields found, try to highlight the entire form
             if (hasResponseConflicts && !document.querySelector('[data-field-type]')) {
-                console.log('🔄 No specific lifetime fields found, trying to highlight form areas');
+                console.log('No specific lifetime fields found, trying to highlight form areas');
                 const formElements = document.querySelectorAll('form, .form-section, .client-settings');
                 formElements.forEach((form, index) => {
-                    if (index < 2) { // Only highlight first 2 forms to avoid spam
+                    if (index < 2) {
                         (form as HTMLElement).classList.add('lifetime-field-conflict-highlight');
                         setTimeout(() => {
                             (form as HTMLElement).classList.remove('lifetime-field-conflict-highlight');
@@ -1469,29 +1434,26 @@ export default function AiAssistant(): React.JSX.Element {
      * Highlights scope conflicts in the UI with blinking animation
      */
     const highlightScopeConflicts = useCallback((context: any) => {
-        console.log('🚀 Starting highlightScopeConflicts function');
-        console.log('📋 Context for scope conflicts:', context);
+        console.log('Starting highlightScopeConflicts function');
+        console.log('Context for scope conflicts:', context);
 
         const scopeConflicts = context?.scopeConflicts || [];
-        console.log('🔍 Found scope conflicts:', scopeConflicts);
+        console.log('Found scope conflicts:', scopeConflicts);
 
         if (scopeConflicts.length === 0) {
-            console.log('ℹ️ No scope conflicts found');
+            console.log('ℹNo scope conflicts found');
             return;
         }
 
-        // Extract scope names that have conflicts
         const conflictingScopeNames = scopeConflicts.map((conflict: any) => conflict.scopeName);
-        console.log('⚠️ Highlighting scopes with conflicts:', conflictingScopeNames);
+        console.log('⚠Highlighting scopes with conflicts:', conflictingScopeNames);
 
-        // Remove existing highlights
         document.querySelectorAll('[data-scope-name]').forEach((el) => {
             (el as HTMLElement).classList.remove('scope-conflict-highlight');
         });
 
         setTimeout(() => {
             conflictingScopeNames.forEach((scopeName: string, index: number) => {
-                // Look for scope elements in different possible locations
                 const selectors = [
                     `[data-scope-name="${scopeName}"]`,
                     `[data-scope="${scopeName}"]`,
@@ -1506,7 +1468,6 @@ export default function AiAssistant(): React.JSX.Element {
                 }
 
                 if (!scopeElement) {
-                    // Try to find by text content containing the scope name
                     const allElements = document.querySelectorAll('*');
                     for (const el of allElements) {
                         if (el.textContent && el.textContent.includes(scopeName)) {
@@ -1516,11 +1477,11 @@ export default function AiAssistant(): React.JSX.Element {
                     }
                 }
 
-                console.log(`🎯 Looking for scope element '${scopeName}':`, scopeElement);
+                console.log(`Looking for scope element '${scopeName}':`, scopeElement);
                 
                 if (scopeElement) {
                     setTimeout(() => {
-                        console.log(`✨ Adding conflict highlight to scope: ${scopeName}`);
+                        console.log(`Adding conflict highlight to scope: ${scopeName}`);
                         scopeElement.classList.add('scope-conflict-highlight');
 
                         if (index === 0) {
@@ -1528,12 +1489,12 @@ export default function AiAssistant(): React.JSX.Element {
                         }
 
                         setTimeout(() => {
-                            console.log(`🔄 Removing conflict highlight from scope: ${scopeName}`);
+                            console.log(`Removing conflict highlight from scope: ${scopeName}`);
                             scopeElement.classList.remove('scope-conflict-highlight');
                         }, 8000);
                     }, index * 300);
                 } else {
-                    console.warn('❌ DOM-element for scope ikke funnet:', scopeName);
+                    console.warn('DOM-element for scope ikke funnet:', scopeName);
                 }
             });
         }, 200);
@@ -1555,17 +1516,17 @@ export default function AiAssistant(): React.JSX.Element {
             const currentContext = lockedContext || context;
             
             if (keysTabElement && currentContext) {
-                console.log('🎯 Keys tab clicked - checking for expired keys');
+                console.log('Keys tab clicked - checking for expired keys');
                 highlightExpiredKeys(currentContext);
             }
             
             if (scopesTabElement && currentContext) {
-                console.log('🎯 Scopes tab clicked - checking for scope conflicts');
+                console.log('Scopes tab clicked - checking for scope conflicts');
                 highlightScopeConflicts(currentContext);
             }
             
             if (detailsTabElement && currentContext) {
-                console.log('🎯 Details tab clicked - checking for lifetime field conflicts');
+                console.log('Details tab clicked - checking for lifetime field conflicts');
                 highlightLifetimeFields(currentContext);
             }
         };
@@ -1625,11 +1586,8 @@ export default function AiAssistant(): React.JSX.Element {
         const newAbortController = new AbortController();
         setActiveRequest(newAbortController);
 
-        // IMPORTANT: Do highlighting based on user question BEFORE trying backend call
-        // This ensures highlighting works even if backend fails
-        console.log('🎯 Pre-processing user question for highlighting:', question);
-        
-        // Check if question indicates lifetime conflicts and highlight preemptively
+        console.log('Pre-processing user question for highlighting:', question);
+
         const lowerQuestion = question.toLowerCase();
         const questionIndicatesLifetimeConflicts = 
             lowerQuestion.includes('access tokens utløper før') ||
@@ -1641,14 +1599,12 @@ export default function AiAssistant(): React.JSX.Element {
             lowerQuestion.includes('innstilling') && lowerQuestion.includes('før');
             
         if (questionIndicatesLifetimeConflicts) {
-            console.log('🚨 Question indicates lifetime conflicts - triggering preemptive highlighting');
-            await handleScopeConflictHighlighting(question, contextToUse, true); // Force highlighting
+            console.log('Question indicates lifetime conflicts - triggering preemptive highlighting');
+            await handleScopeConflictHighlighting(question, contextToUse, true);
         } else {
-            // Still do regular question analysis but don't force
             await handleScopeConflictHighlighting(question, contextToUse, false);
         }
 
-        // Test context serialization before sending
         try {
             const testSerialization = JSON.stringify(contextToUse);
             console.log('handleSubmit: Context serialization test successful', {
@@ -1679,11 +1635,9 @@ export default function AiAssistant(): React.JSX.Element {
             if (newAbortController.signal.aborted) {
                 return;
             }
-            
-            // Enhanced response analysis for lifetime conflicts
+
             const responseText = result.answer.toLowerCase();
-            const hasResponseConflicts = 
-                // Norwegian conflict indicators
+            const hasResponseConflicts =
                 responseText.includes('kortere levetid') ||
                 responseText.includes('utløper før') ||
                 responseText.includes('lavere enn klientens') ||
@@ -1695,11 +1649,9 @@ export default function AiAssistant(): React.JSX.Element {
                 responseText.includes('lifetime') ||
                 responseText.includes('logger ut tidligere') ||
                 responseText.includes('tidligere enn forventet') ||
-                // Technical field names
                 responseText.includes('at_max_age') ||
                 responseText.includes('access_token_lifetime') ||
                 responseText.includes('authorization_max_lifetime') ||
-                // Specific scope mentions with context about lifetime issues
                 (responseText.includes('scope') && (
                     responseText.includes('120') || 
                     responseText.includes('300') ||
@@ -1707,7 +1659,7 @@ export default function AiAssistant(): React.JSX.Element {
                     responseText.includes('minutter')
                 ));
 
-            console.log('🔍 Enhanced chatbot response conflict analysis:', {
+            console.log('Enhanced chatbot response conflict analysis:', {
                 hasResponseConflicts,
                 responseSnippet: responseText.substring(0, 300) + '...',
                 contextConflictsCount: contextToUse?.scopeConflicts?.length || 0,
@@ -1722,9 +1674,9 @@ export default function AiAssistant(): React.JSX.Element {
             
             await handleTypingAnimation(result.answer, newAbortController);
             await handleKeyHighlighting(question, contextToUse);
-            // Only do response-based highlighting if we have new response conflicts
+
             if (hasResponseConflicts) {
-                console.log('🔍 Response contains conflict indicators - doing additional highlighting');
+                console.log('Response contains conflict indicators - doing additional highlighting');
                 await handleScopeConflictHighlighting(question, contextToUse, hasResponseConflicts);
             }
         } catch (error) {
@@ -1743,7 +1695,6 @@ export default function AiAssistant(): React.JSX.Element {
                 errorStack: error instanceof Error ? error.stack : undefined
             });
 
-            // Determine error type and provide appropriate user-friendly message
             let userMessage = '';
             const errorMessage = error instanceof Error ? error.message : String(error);
             
@@ -1786,7 +1737,7 @@ export default function AiAssistant(): React.JSX.Element {
                     alt="DesKI Logo" 
                     className="ai-button-logo"
                     onLoad={(e) => {
-                        console.log('✅ Logo loaded successfully!');
+                        console.log('Logo loaded successfully!');
                         console.log('Image element:', e.target);
                         console.log('Image src:', (e.target as HTMLImageElement).src);
                         console.log('Image dimensions:', {
@@ -1797,7 +1748,7 @@ export default function AiAssistant(): React.JSX.Element {
                         });
                     }}
                     onError={(e) => {
-                        console.log('❌ Logo failed to load!');
+                        console.log('Logo failed to load!');
                         console.log('Error target:', e.target);
                         console.log('Attempted src:', (e.target as HTMLImageElement).src);
                         console.log('Error event:', e);
@@ -1959,7 +1910,6 @@ export default function AiAssistant(): React.JSX.Element {
                                 sessionStorage.removeItem(CONTEXT_LABEL_KEY);
                                 sessionStorage.removeItem('ai_assistant_locked_context');
                             } catch (error) {
-                                // Silently ignore sessionStorage errors
                                 console.warn('Session storage cleanup failed:', error);
                             }
                         }}

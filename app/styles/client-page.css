@@ -536,13 +536,11 @@
   }
 }
 
-/* Access token lifetime specific highlighting */
 .access-token-conflict-highlight {
   animation: pulse-access-token 1.2s ease-in-out 4;
   border-radius: 8px;
   position: relative;
   z-index: 10;
-  /* Apply styles directly to the element itself */
   outline: 3px solid #e11d48 !important;
   outline-offset: 3px;
   box-shadow: 0 0 15px rgba(225, 29, 72, 0.6) !important;
@@ -586,13 +584,11 @@
   }
 }
 
-/* Authorization lifetime specific highlighting */
 .authorization-conflict-highlight {
   animation: pulse-authorization 1.2s ease-in-out 4;
   border-radius: 8px;
   position: relative;
   z-index: 10;
-  /* Apply styles directly to the element itself */
   outline: 3px solid #dc2626 !important;
   outline-offset: 3px;
   box-shadow: 0 0 15px rgba(220, 38, 38, 0.6) !important;
