@@ -90,6 +90,9 @@ const AddKeyModal = ({ closeModal }: { closeModal: () => void }) => {
         closeModal()
     }, [fetcher.data, closeModal, t])
 
+    /**
+     * Handles the form submission for adding a new key.
+     */
     return (
         <Dialog open closedby='any' onClose={closeModal} className='rounded-lg bg-white'>
             <HeadingWrapper level={3} heading={t('client_page.add_key')}/>
@@ -166,6 +169,9 @@ const Keys = ({ jwks }: { jwks: JWK[] }) => {
         setIsModalOpen(false);
     };
 
+    /**
+     * Renders the Keys component, which displays the keys associated with a client.
+     */
     return (
         <div className="items-center">
             <div className="pt-6 flex items-center">
