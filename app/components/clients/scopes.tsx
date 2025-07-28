@@ -11,6 +11,9 @@ import { BaseSchema, IntegrationType } from '~/lib/clients';
 
 import HeadingWrapper from '../util/HeadingWrapper';
 
+/**
+ * Enum representing the different filter categories for scopes.
+ */
 enum FilterCategory {
     All = 'all',
     AccessibleForAll = 'accessibleForAll',
@@ -18,6 +21,12 @@ enum FilterCategory {
     AvailableToOrganization = 'availableToOrganization'
 }
 
+/**
+ * ScopesCard component that displays and manages scopes for a client.
+ *
+ * @param props - The properties for the ScopesCard component, including promises for scopes, form metadata, service type, and a callback for service changes.
+ * @constructor - This component renders a card with scopes, allows adding/removing scopes, and provides a modal for selecting additional scopes.
+ */
 const ScopesCard = (props: {
     scopesAccessibleForAll?: Promise<ApiResponse<Scope[]>>;
     scopesWithDelegationSource?: Promise<ApiResponse<Scope[]>>;
@@ -128,14 +137,12 @@ const ScopesCard = (props: {
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Remove a scope from the list
     const removeScope = (scopeToRemove: string) => {
         if (!NON_REMOVABLE_SCOPES.includes(scopeToRemove)) {
             setScopes((prevScopes) => prevScopes.filter((scope) => scope !== scopeToRemove));
         }
     };
 
-    // Add KRR scopes separately to the scopes array
     const handleKRRChange = (event: ChangeEvent<HTMLInputElement>) => {
         const { checked } = event.target;
         if (checked) {
@@ -173,6 +180,9 @@ const ScopesCard = (props: {
     // Check if KRR scopes are already added
     const isKRRChecked = KRR_SCOPES.every((scope) => scopes.includes(scope));
 
+    /**
+     * Renders the ScopesCard component, which displays and manages scopes for a client.
+     */
     return (
         <Card className='shadow space-y-4 border-none rounded-lg col-span-12 bg-white p-6'>
             <HeadingWrapper level={4} heading={t('scope')}/>
@@ -363,5 +373,8 @@ const ScopesCard = (props: {
     )
 };
 
+/**
+ * ScopesCard component that displays and manages scopes for a client.
+ */
 export default ScopesCard;
 

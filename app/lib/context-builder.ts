@@ -4,6 +4,219 @@
 export class ContextBuilder {
 
     /**
+     * Analyzes scope lifetime conflicts with client lifetime settings.
+     * 
+     * @param client - The client object containing lifetime settings.
+     * @param clientScopes - Array of scope names that the client has access to.
+     * @param availableScopes - All available scope objects with their lifetime settings.
+     * @returns Array of scope conflicts with detailed information.
+     */
+    private static analyzeScopeLifetimeConflicts(
+        client: any,
+        clientScopes: string[],
+        availableScopes: any[]
+    ): any[] {
+        const conflicts: any[] = [];
+        
+        if (!client || !clientScopes || !availableScopes) {
+            console.log('analyzeScopeLifetimeConflicts: Missing required data', {
+                hasClient: !!client,
+                hasClientScopes: !!clientScopes,
+                clientScopesLength: clientScopes?.length,
+                hasAvailableScopes: !!availableScopes,
+                availableScopesLength: availableScopes?.length
+            });
+            return conflicts;
+        }
+
+        const clientAccessTokenLifetime = client.access_token_lifetime;
+        const clientAuthorizationLifetime = client.authorization_lifetime;
+
+        console.log('analyzeScopeLifetimeConflicts: Starting analysis', {
+            clientId: client.client_id,
+            clientAccessTokenLifetime,
+            clientAuthorizationLifetime,
+            clientScopesCount: clientScopes.length,
+            availableScopesCount: availableScopes.length,
+            clientScopes: clientScopes,
+            availableScopeNames: availableScopes.map(s => s.name || s.scope),
+            scopesInAvailableButNotInClient: availableScopes.filter(s => 
+                !clientScopes.includes(s.name || s.scope || `${s.prefix}:${s.subscope}`)
+            ).map(s => ({
+                name: s.name || s.scope || `${s.prefix}:${s.subscope}`,
+                at_max_age: s.at_max_age,
+                authorization_max_lifetime: s.authorization_max_lifetime
+            }))
+        });
+
+        clientScopes.forEach(scopeName => {
+            let scope = null;
+            const searchStrategies = [
+                () => availableScopes.find(s => s.name === scopeName),
+                () => availableScopes.find(s => s.scope === scopeName),
+                () => availableScopes.find(s => `${s.prefix}:${s.subscope}` === scopeName),
+                () => availableScopes.find(s => s.name?.toLowerCase() === scopeName.toLowerCase()),
+                () => availableScopes.find(s => s.scope?.toLowerCase() === scopeName.toLowerCase())
+            ];
+
+            for (const strategy of searchStrategies) {
+                scope = strategy();
+                if (scope) break;
+            }
+            
+            console.log(`Checking scope '${scopeName}':`, {
+                found: !!scope,
+                searchAttempts: {
+                    byName: !!availableScopes.find(s => s.name === scopeName),
+                    byScope: !!availableScopes.find(s => s.scope === scopeName),
+                    byPrefixSubscope: !!availableScopes.find(s => `${s.prefix}:${s.subscope}` === scopeName),
+                    caseInsensitive: !!availableScopes.find(s => 
+                        s.name?.toLowerCase() === scopeName.toLowerCase() || 
+                        s.scope?.toLowerCase() === scopeName.toLowerCase()
+                    )
+                },
+                scopeData: scope ? {
+                    name: scope.name,
+                    scope: scope.scope,
+                    prefix: scope.prefix,
+                    subscope: scope.subscope,
+                    at_max_age: scope.at_max_age,
+                    authorization_max_lifetime: scope.authorization_max_lifetime,
+                    dataType_at_max_age: typeof scope.at_max_age,
+                    dataType_auth_max: typeof scope.authorization_max_lifetime,
+                    rawValues: {
+                        at_max_age_raw: scope.at_max_age,
+                        auth_max_raw: scope.authorization_max_lifetime
+                    }
+                } : null,
+                availableScopesDebug: availableScopes.length > 10 ? 
+                    `${availableScopes.length} scopes (showing first 5): ${availableScopes.slice(0, 5).map(s => s.name || s.scope || `${s.prefix}:${s.subscope}`).join(', ')}` :
+                    availableScopes.map(s => s.name || s.scope || `${s.prefix}:${s.subscope}`).join(', ')
+            });
+            
+            if (!scope) {
+                if (['openid', 'profile', 'email', 'phone', 'address'].includes(scopeName.toLowerCase())) {
+                    console.log(`Scope '${scopeName}' is a standard OpenID Connect scope - no lifetime restrictions apply`);
+                } else {
+                    console.warn(`Scope '${scopeName}' not found in available scopes - this could indicate a configuration issue!`);
+                    console.log('Available scope identifiers:', availableScopes.map(s => ({
+                        name: s.name,
+                        scope: s.scope,
+                        prefixSubscope: `${s.prefix}:${s.subscope}`,
+                        active: s.active
+                    })));
+                }
+                return;
+            }
+
+            if (scope.authorization_max_lifetime != null && clientAuthorizationLifetime != null) {
+                const scopeAuthMax = Number(scope.authorization_max_lifetime);
+                const clientAuthLifetime = Number(clientAuthorizationLifetime);
+
+                if (isNaN(scopeAuthMax) || isNaN(clientAuthLifetime)) {
+                    console.error(`Invalid number values for authorization lifetime check - scope: ${scope.authorization_max_lifetime} (${typeof scope.authorization_max_lifetime}), client: ${clientAuthorizationLifetime} (${typeof clientAuthorizationLifetime})`);
+                    return;
+                }
+                
+                console.log(`Authorization lifetime check for '${scopeName}':`, {
+                    scopeAuthMax,
+                    clientAuthLifetime,
+                    scopeAuthMaxRaw: scope.authorization_max_lifetime,
+                    clientAuthLifetimeRaw: clientAuthorizationLifetime,
+                    willConflict: scopeAuthMax > 0 && scopeAuthMax < clientAuthLifetime
+                });
+
+                if (scopeAuthMax > 0 && scopeAuthMax < clientAuthLifetime) {
+                    console.log(`Authorization conflict detected for scope '${scopeName}'`);
+                    conflicts.push({
+                        type: 'authorization_lifetime_conflict',
+                        scopeName: scopeName,
+                        scopeLifetime: scopeAuthMax,
+                        clientLifetime: clientAuthLifetime,
+                        severity: 'high',
+                        description: `Scope '${scopeName}' har en maksimal autorisasjonslevetid på ${scopeAuthMax} sekunder, som er lavere enn klientens autorisasjonslevetid på ${clientAuthLifetime} sekunder. Dette vil føre til at brukeren blir logget ut tidligere enn forventet.`,
+                        solution: `Reduser klientens autorisasjonslevetid til maksimalt ${scopeAuthMax} sekunder, eller øk scope '${scopeName}' sin authorization_max_lifetime.`
+                    });
+                }
+            }
+
+            if (scope.at_max_age != null && clientAccessTokenLifetime != null) {
+                const scopeAtMaxAge = Number(scope.at_max_age);
+                const clientAccessLifetime = Number(clientAccessTokenLifetime);
+
+                if (isNaN(scopeAtMaxAge) || isNaN(clientAccessLifetime)) {
+                    console.error(`Invalid number values for access token lifetime check - scope: ${scope.at_max_age} (${typeof scope.at_max_age}), client: ${clientAccessTokenLifetime} (${typeof clientAccessTokenLifetime})`);
+                    return;
+                }
+                
+                console.log(`🔍 Access token lifetime check for '${scopeName}':`, {
+                    scopeAtMaxAge,
+                    clientAccessLifetime,
+                    scopeAtMaxAgeRaw: scope.at_max_age,
+                    clientAccessLifetimeRaw: clientAccessTokenLifetime,
+                    willConflict: scopeAtMaxAge > 0 && scopeAtMaxAge < clientAccessLifetime,
+                    conflictExplanation: {
+                        scopeHasLimit: scopeAtMaxAge > 0,
+                        scopeIsStricter: scopeAtMaxAge < clientAccessLifetime,
+                        result: scopeAtMaxAge > 0 && scopeAtMaxAge < clientAccessLifetime ? 'CONFLICT' : 'NO_CONFLICT'
+                    }
+                });
+
+                if (scopeAtMaxAge > 0 && scopeAtMaxAge < clientAccessLifetime) {
+                    console.log(`⚠Access token conflict detected for scope '${scopeName}' - scope enforces ${scopeAtMaxAge}s but client wants ${clientAccessLifetime}s`);
+                    conflicts.push({
+                        type: 'access_token_lifetime_conflict',
+                        scopeName: scopeName,
+                        scopeLifetime: scopeAtMaxAge,
+                        clientLifetime: clientAccessLifetime,
+                        severity: 'high',
+                        description: `Scope '${scopeName}' har en maksimal access token levetid på ${scopeAtMaxAge} sekunder, som er lavere enn klientens access_token_lifetime på ${clientAccessLifetime} sekunder. Access tokens vil utløpe tidligere enn klienten forventer.`,
+                        solution: `Reduser klientens access_token_lifetime til maksimalt ${scopeAtMaxAge} sekunder, eller øk scope '${scopeName}' sin at_max_age.`
+                    });
+                } else {
+                    console.log(`No access token conflict for scope '${scopeName}' - ${scopeAtMaxAge === 0 ? 'scope has no limit' : `scope allows ${scopeAtMaxAge}s which is >= client's ${clientAccessLifetime}s`}`);
+                }
+            } else {
+                console.log(`ℹSkipping access token check for '${scopeName}' - missing values:`, {
+                    scopeHasAtMaxAge: scope.at_max_age != null,
+                    clientHasAccessTokenLifetime: clientAccessTokenLifetime != null,
+                    scopeAtMaxAge: scope.at_max_age,
+                    clientAccessTokenLifetime: clientAccessTokenLifetime
+                });
+            }
+        });
+
+        console.log('analyzeScopeLifetimeConflicts: Analysis complete', {
+            totalConflicts: conflicts.length,
+            conflicts: conflicts.map(c => ({
+                type: c.type,
+                scopeName: c.scopeName,
+                scopeLifetime: c.scopeLifetime,
+                clientLifetime: c.clientLifetime
+            })),
+            clientScopes: clientScopes,
+            hasOnlyStandardScopes: clientScopes.every(s => ['openid', 'profile'].includes(s)),
+            scopesChecked: clientScopes.filter(scopeName => 
+                availableScopes.some(s => s.name === scopeName || s.scope === scopeName)
+            ),
+            potentialMissedConflicts: availableScopes.filter(s => 
+                (s.at_max_age && s.at_max_age > 0 && s.at_max_age < clientAccessTokenLifetime) ||
+                (s.authorization_max_lifetime && s.authorization_max_lifetime > 0 && s.authorization_max_lifetime < clientAuthorizationLifetime)
+            ).map(s => ({
+                name: s.name || s.scope || `${s.prefix}:${s.subscope}`,
+                at_max_age: s.at_max_age,
+                authorization_max_lifetime: s.authorization_max_lifetime,
+                wouldConflictWith: {
+                    accessToken: s.at_max_age && s.at_max_age > 0 && s.at_max_age < clientAccessTokenLifetime,
+                    authorization: s.authorization_max_lifetime && s.authorization_max_lifetime > 0 && s.authorization_max_lifetime < clientAuthorizationLifetime
+                }
+            }))
+        });
+
+        return conflicts;
+    }
+
+    /**
      * Builds a client context with the provided parameters.
      *
      * @param client - The client object containing client details.
@@ -21,6 +234,25 @@ export class ContextBuilder {
         scopesWithDelegationSource: any[],
         scopesAvailableToOrganization: any[]
     ): Promise<any> {
+        const allAvailableScopes = [
+            ...(scopesAccessibleForAll ?? []),
+            ...(scopesWithDelegationSource ?? []),
+            ...(scopesAvailableToOrganization?.map(s => ({ name: s.scope, ...s })) ?? [])
+        ];
+
+        const scopeConflicts = this.analyzeScopeLifetimeConflicts(
+            client,
+            client?.scopes ?? [],
+            allAvailableScopes
+        );
+
+        const clientScopes = client?.scopes ?? [];
+        const hasOnlyStandardScopes = clientScopes.every((s: string) => ['openid', 'profile'].includes(s));
+        const scopesWithLifetimeRestrictions = allAvailableScopes.filter(s => 
+            clientScopes.includes(s.name || s.scope) && 
+            (s.at_max_age != null || s.authorization_max_lifetime != null)
+        );
+
         return {
             client,
             jwks: JWK,
@@ -29,6 +261,16 @@ export class ContextBuilder {
                 accessibleForAll: scopesAccessibleForAll,
                 withDelegationSource: scopesWithDelegationSource,
                 availableToOrganization: scopesAvailableToOrganization
+            },
+            scopeConflicts: scopeConflicts,
+            hasConfigurationIssues: scopeConflicts.length > 0,
+            scopeAnalysis: {
+                hasOnlyStandardScopes,
+                clientScopesCount: clientScopes.length,
+                scopesWithLifetimeRestrictions: scopesWithLifetimeRestrictions.length,
+                message: hasOnlyStandardScopes ? 
+                    'Denne klienten bruker kun standard OpenID scopes (openid, profile) som ikke har levetidsbegrensninger. Access token lifetime konflikter er derfor ikke relevante for denne klienten.' :
+                    null
             }
         };
     }

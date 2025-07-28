@@ -19,7 +19,13 @@ import { useAiAssistantContext } from '~/components/ai/AiAssistant';
 
 import { ActionIntent } from './actions';
 
-
+/**
+ * AddOnBehalfOfModal component that allows users to add or edit an "on behalf of" entry for a client.
+ *
+ * @param closeModal - Function to close the modal.
+ * @param existingOnBehalfOf - Optional existing "on behalf of" entry to edit. If provided, the modal will be in edit mode.
+ * @constructor - This component renders a form for adding or editing an "on behalf of" entry, including organization number, name, unique ID, and description.
+ */
 const AddOnBehalfOfModal = ({ closeModal, existingOnBehalfOf }: { closeModal: () => void, existingOnBehalfOf?: ClientOnBehalfOf | null }) => {
     const [form, fields] = useForm({
         onValidate({ formData }) {
@@ -36,6 +42,9 @@ const AddOnBehalfOfModal = ({ closeModal, existingOnBehalfOf }: { closeModal: ()
     const [organizationNameNotFound, setOrganizationNameNotFound] = useState<string | null>(null);
     const [organizationName, setOrganizationName] = useState<string | null>(null);
 
+    /**
+     * Effect hook that runs when the fetcher data changes.
+     */
     useEffect(() => {
         if (!fetcher.data) {
             return;
@@ -79,6 +88,9 @@ const AddOnBehalfOfModal = ({ closeModal, existingOnBehalfOf }: { closeModal: ()
         await fetcher.load(`/organization/${orgno}`)
     }
 
+    /**
+     * Renders the modal for adding or editing an "on behalf of" entry.
+     */
     return (
         <Dialog open closedby='any' onClose={closeModal} className='rounded-lg bg-white'>
             <HeadingWrapper level={3} heading={t(existingOnBehalfOf ? 'client_page.onbehalfof.edit_onbehalfof' : 'client_page.onbehalfof.add_onbehalfof')}/>
@@ -158,7 +170,12 @@ const AddOnBehalfOfModal = ({ closeModal, existingOnBehalfOf }: { closeModal: ()
     );
 };
 
-
+/**
+ * OnBehalfOf component that displays a list of "on behalf of" entries for a client and allows adding, editing, or deleting them.
+ *
+ * @param onBehalfOfs - An array of "on behalf of" entries associated with the client.
+ * @constructor - This component uses the `useTranslation` hook for internationalization, the `useAiAssistantContext` for context management, and the `useFetcher` hook to handle form submissions and data fetching.
+ */
 const OnBehalfOf = ({ onBehalfOfs }: { onBehalfOfs: ClientOnBehalfOf[] }) => {
     const { t } = useTranslation();
     const { setContext } = useAiAssistantContext();
@@ -169,7 +186,6 @@ const OnBehalfOf = ({ onBehalfOfs }: { onBehalfOfs: ClientOnBehalfOf[] }) => {
 
     const fetcher = useFetcher();
 
-    // Set context back to client-details when this component is rendered
     useEffect(() => {
         setContext((prevContext: any) => ({
             ...prevContext,
@@ -203,6 +219,9 @@ const OnBehalfOf = ({ onBehalfOfs }: { onBehalfOfs: ClientOnBehalfOf[] }) => {
         setEditingOnBehalfOf(null)
     };
 
+    /**
+     * Renders the OnBehalfOf component, which displays a list of "on behalf of" entries for a client.
+     */
     return (
         <>
             {(onBehalfOfs.length > 0) && (
@@ -316,4 +335,7 @@ const OnBehalfOf = ({ onBehalfOfs }: { onBehalfOfs: ClientOnBehalfOf[] }) => {
     )
 }
 
+/**
+ * OnBehalfOf component that displays a list of "on behalf of" entries for a client and allows adding, editing, or deleting them.
+ */
 export default OnBehalfOf;
