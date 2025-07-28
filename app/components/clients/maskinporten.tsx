@@ -10,7 +10,12 @@ import { ApiResponse } from '~/lib/api_client';
 import { HelpText } from '../util/HelpText';
 import { Textfield } from '../util/TextField';
 
-
+/**
+ * MaskinportenClient component that displays the details of a Maskinporten client.
+ *
+ * @param props - The properties for the MaskinportenClient component, including form metadata, client details, and promises for scopes.
+ * @constructor - This component renders the client details, properties, and lifetime token settings for a Maskinporten client.
+ */
 const MaskinportenClient = (props: {
     form: FormMetadata<MaskinportenSchema>;
     client?: Client;
@@ -21,6 +26,9 @@ const MaskinportenClient = (props: {
     const { t } = useTranslation();
     const fields = form.getFieldset();
 
+    /**
+     * Renders the Maskinporten client details, properties, and lifetime token settings.
+     */
     return (
         <>
             <Card
@@ -138,4 +146,7 @@ const MaskinportenClient = (props: {
     );
 };
 
+/**
+ * MaskinportenClient component that renders the details of a Maskinporten client, including its properties and lifetime token settings.
+ */
 export default MaskinportenClient;
