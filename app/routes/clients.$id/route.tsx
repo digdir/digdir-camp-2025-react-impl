@@ -31,16 +31,14 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
     await Authorization.requireAuthenticatedUser();
     const clientId = params.id!;
     const apiClient = await ApiClient.create();
-
     const { data: client, error } = await apiClient.getClient(clientId);
+
     if (error) {
         return error.toErrorResponse();
     }
 
     const actualIntegrationType = 'ID_PORTEN';
-
     const JWK = await apiClient.getJwks(client.client_id!);
-
     const { data: scopesAccessibleForAll, error: error1 } = await apiClient.apiClient.GET('/api/v1/scopes/all', {
         params: {
             query: {
@@ -49,6 +47,7 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
             }
         }
     });
+
     if (error1) {
         console.error('Error fetching scopesAccessibleForAll:', error1);
     }
@@ -61,11 +60,13 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
             }
         }
     });
+
     if (error2) {
         console.error('Error fetching scopesWithDelegationSource:', error2);
     }
 
     const { data: scopesAvailableToOrganization, error: error3 } = await apiClient.getScopesAccessibleToUsersOrganization();
+
     if (error3) {
         console.error('Error fetching scopesAvailableToOrganization:', error3);
     }
@@ -90,10 +91,12 @@ export async function clientLoader({ params }: ClientLoaderFunctionArgs) {
  */
 async function handleDeleteClient(clientService: ClientService, clientId: string) {
     const apiResponse = await clientService.deleteClient(clientId);
+
     if (!apiResponse.error) {
         StatusMessage.set('client_page.successful_delete', StatusColor.success);
         return { redirect: '/clients' };
     }
+
     return { apiResponse };
 }
 
@@ -107,6 +110,7 @@ async function handleDeleteClient(clientService: ClientService, clientId: string
 async function handleUpdateClient(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.updateClient(clientId, formData);
     const statusMessage = !apiResponse.error ? 'client_page.successful_update' : '';
+
     return { apiResponse, statusMessage };
 }
 
@@ -120,6 +124,7 @@ async function handleUpdateClient(clientService: ClientService, clientId: string
 async function handleAddKey(clientService: ClientService, clientId: string, formData: FormData) {
     const apiResponse = await clientService.addKey(clientId, formData.get('jwk') as string);
     const statusMessage = !apiResponse.error ? 'client_page.successful_jwk_add' : '';
+
     return { apiResponse, statusMessage };
 }
 
@@ -168,6 +173,7 @@ async function handleOnBehalfOfActions(clientService: ClientService, clientId: s
     if (!apiResponse.error) {
         StatusMessage.set(messageKey, StatusColor.success, formData.get('name') as string);
     }
+
     return { apiResponse };
 }
 
