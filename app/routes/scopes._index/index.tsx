@@ -57,6 +57,7 @@ export default function Scopes() {
     const [prefixDropdownOpen, setPrefixDropdownOpen] = useState(false);
     const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null);
 
+    // Set initial sorting by "created" in ascending order
     const [sortField, setSortField] = useState<SortField>(SortField.Created);
     const [sortAscending, setSortAscending] = useState(false);
 
