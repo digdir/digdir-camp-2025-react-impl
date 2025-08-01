@@ -11,9 +11,6 @@ import { UriCard } from '~/components/util/uri/UriCard';
 import { HelpText } from '../util/HelpText';
 import { Textfield } from '../util/TextField';
 
-/**
- * IdportenClient component that displays the details of an Idporten client.
- */
 type Props = {
     form: FormMetadata<IdportenSchema>;
     client?: Client;
@@ -21,15 +18,6 @@ type Props = {
     uriCardRef: RefObject<HTMLDivElement | null>;
 }
 
-/**
- * IdportenClient component that renders the details of an Idporten client, including general information, properties, and lifetime token settings.
- *
- * @param form - The form metadata for the Idporten client.
- * @param client - The client object containing details such as client ID, name, and integration type.
- * @param onGenerateSecretClick - Callback function to handle the generation of a new client secret.
- * @param uriCardRef - Reference to the URI card component for managing redirect URIs and post logout redirect URIs.
- * @constructor - This component fetches the client details and renders the appropriate client card based on the integration type.
- */
 const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Props) => {
     const { t } = useTranslation();
     const fields = form.getFieldset();
@@ -46,9 +34,6 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
     const [sso_disabled, setSso_disabled] = useState<boolean | undefined>(client?.sso_disabled);
     const [tokenAuthMethod, setTokenAuthMethod] = useState<string | undefined>(client?.token_endpoint_auth_method);
 
-    /**
-     * Renders the Idporten client details, properties, and lifetime token settings.
-     */
     return (
         <>
             <Card
@@ -297,7 +282,6 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
                         name={fields.access_token_lifetime.name}
                         defaultValue={client?.access_token_lifetime || 120}
                         error={t(fields.access_token_lifetime.errors || '')}
-                        data-field-type="access_token_lifetime"
                     />
                     <Textfield
                         className={` ${client ? 'w-full xl:w-1/2' : 'w-full lg:w-1/4'} `}
@@ -308,7 +292,6 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
                         name={fields.refresh_token_lifetime.name}
                         defaultValue={client?.refresh_token_lifetime || 600}
                         error={t(fields.refresh_token_lifetime.errors || '')}
-                        data-field-type="refresh_token_lifetime"
                     />
                     <Textfield
                         className={` ${client ? 'w-full xl:w-1/2' : 'w-full lg:w-1/4'} `}
@@ -319,7 +302,6 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
                         name={fields.authorization_lifetime.name}
                         defaultValue={client?.authorization_lifetime || 7200}
                         error={t(fields.authorization_lifetime.errors || '')}
-                        data-field-type="authorization_lifetime"
                     />
                 </div>
             </Card>
@@ -329,7 +311,4 @@ const IdportenClient = ({ form, client, onGenerateSecretClick, uriCardRef }: Pro
     );
 };
 
-/**
- * IdportenClient component that displays the details of an Idporten client.
- */
 export default IdportenClient;
